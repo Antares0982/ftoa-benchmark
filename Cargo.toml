@@ -12,4 +12,4 @@ pyo3 = { version = "0.22", features = ["extension-module"] }
 dtoa = "1.0"
 
 [build-dependencies]
-cc = "1.0"
+cc = "1.2"
