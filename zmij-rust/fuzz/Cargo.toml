@@ -1,0 +1,21 @@
+[package]
+name = "zmij-fuzz"
+version = "0.0.0"
+authors = ["David Tolnay <dtolnay@gmail.com>"]
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+zmij = { path = ".." }
+
+[[bin]]
+name = "fuzz_zmij"
+path = "fuzz_targets/fuzz_zmij.rs"
+test = false
+doc = false
+
+[workspace]
