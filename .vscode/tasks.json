@@ -1,0 +1,14 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Push nix build to cachix (make sure nixpkgs version is same as dotfile)",
+            "type": "shell",
+            "command": "sh -c \"nix build . && cachix push antares0982 result\"",
+            "group": {
+                "kind": "build",
+            },
+            "hide": false
+        }
+    ]
+}

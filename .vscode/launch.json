@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug main.rs with args",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/my-rust-project",
+            "args": [
+                // Add your command line arguments here
+            ],
+            "cwd": "${workspaceFolder}",
+            "cargo": {
+                "args": [
+                    "build"
+                ]
+            }
+        }
+    ]
+}
