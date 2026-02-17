@@ -1,6 +1,15 @@
 [package]
-name = "my-rust-project"
+name = "zmij-playground"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+
+[lib]
+name = "zmij_playground"
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+dtoa = "1.0"
+
+[build-dependencies]
+cc = "1.0"

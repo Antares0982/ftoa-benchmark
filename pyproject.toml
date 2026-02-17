@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=42", "setuptools-rust>=1.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zmij-playground"
+version = "0.1.0"
+description = "Performance testing playground for zmij (dtoa) algorithm implementations"
+requires-python = ">=3.7"
