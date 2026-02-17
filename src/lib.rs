@@ -150,7 +150,7 @@ fn read_floats_from_file(filename: String) -> PyResult<Vec<f32>> {
 
 // Python module definition
 #[pymodule]
-fn zmij_playground(_py: Python, m: &PyModule) -> PyResult<()> {
+fn zmij_playground(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Rust implementations
     m.add_function(wrap_pyfunction!(zmij_rust_double, m)?)?;
     m.add_function(wrap_pyfunction!(zmij_rust_float, m)?)?;
