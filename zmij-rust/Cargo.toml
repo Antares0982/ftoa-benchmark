@@ -12,6 +12,12 @@ license = "MIT"
 repository = "https://github.com/dtolnay/zmij"
 rust-version = "1.71"
 
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 no-panic = { version = "0.1.36", optional = true }
 

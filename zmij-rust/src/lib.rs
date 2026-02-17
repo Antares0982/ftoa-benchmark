@@ -1245,6 +1245,7 @@ mod private {
             }
         }
 
+        #[inline]
         #[cfg_attr(feature = "no-panic", inline)]
         unsafe fn write_to_zmij_buffer(self, buffer: *mut u8) -> *mut u8 {
             unsafe { crate::write(self, buffer) }
@@ -1274,6 +1275,7 @@ mod private {
             }
         }
 
+        #[inline]
         #[cfg_attr(feature = "no-panic", inline)]
         unsafe fn write_to_zmij_buffer(self, buffer: *mut u8) -> *mut u8 {
             unsafe { crate::write(self, buffer) }
@@ -1287,4 +1289,28 @@ impl Default for Buffer {
     fn default() -> Self {
         Buffer::new()
     }
+}
+
+// ---- Begin playground FFI exports ----
+// These extern "C" wrappers are appended for the benchmark playground.
+// They live in the same crate so the compiler inlines the actual algorithm.
+//
+// When built as cdylib, we need std to provide a panic handler.
+#[cfg(not(test))]
+extern crate std;
+
+use private::Sealed;
+
+/// # Safety
+/// `buffer` must point to a writable buffer of at least 16 bytes.
+#[no_mangle]
+pub unsafe extern "C" fn zmij_detail_write_float(value: f32, buffer: *mut u8) -> *mut u8 {
+    unsafe { value.write_to_zmij_buffer(buffer) }
+}
+
+/// # Safety
+/// `buffer` must point to a writable buffer of at least 25 bytes.
+#[no_mangle]
+pub unsafe extern "C" fn zmij_detail_write_double(value: f64, buffer: *mut u8) -> *mut u8 {
+    unsafe { value.write_to_zmij_buffer(buffer) }
 }

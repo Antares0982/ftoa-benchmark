@@ -1053,3 +1053,19 @@ template auto write(double value, char* buffer) noexcept -> char*;
 
 }  // namespace detail
 }  // namespace zmij
+
+// ---- Begin playground FFI exports ----
+// These extern "C" wrappers are appended for the benchmark playground.
+// They live in the same TU so the compiler inlines the actual algorithm.
+
+extern "C" {
+
+char* zmij_detail_write_float(float value, char* buffer) {
+    return zmij::detail::write(value, buffer);
+}
+
+char* zmij_detail_write_double(double value, char* buffer) {
+    return zmij::detail::write(value, buffer);
+}
+
+}  // extern "C"
