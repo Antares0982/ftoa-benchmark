@@ -30,5 +30,14 @@
       packages = forAllSystems (pkgs: rec {
         default = pkgs.callPackage ./package.nix { };
       });
+      devShells = forAllSystems (pkgs: rec {
+        default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            python
+            clang
+            cmake
+          ];
+        };
+      });
     };
 }
