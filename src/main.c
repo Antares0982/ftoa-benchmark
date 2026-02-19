@@ -72,6 +72,16 @@ static zmij_lib_t load_lib(const char *dir, const char *filename,
     return lib;
 }
 
+int ends_with(const char *str, const char *suffix) {
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix > lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
 /* ---- Input reader ------------------------------------------------------- */
 
 typedef struct {
@@ -215,6 +225,66 @@ static void bench_double(const char *name, write_double_fn fn,
            name, total_calls, total_ns / 1e6, mean_per_call, stddev, (size_t)sink);
 }
 
+/* ---- Verification ------------------------------------------------------ */
+
+static int verify_float(const zmij_lib_t libs[3], const float *vals,
+                        size_t count) {
+    char bufs[3][64];
+    int mismatches = 0;
+    size_t skip_index = 3;
+
+    for (size_t i = 0; i < 3; ++i) {
+        if (strcmp("C", libs[i].name) == 0) {
+            skip_index = i;
+            printf("  *** skipping verification for C ***\n");
+            break;
+        }
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        for (int k = 0; k < 3; k++) {
+            char *end = libs[k].wf(vals[i], bufs[k]);
+            *end = '\0';
+        }
+
+        if ((skip_index == 2 && strcmp(bufs[0], bufs[1]) != 0) ||
+            (skip_index == 1 && strcmp(bufs[0], bufs[2]) != 0) ||
+            (skip_index == 0 && strcmp(bufs[1], bufs[2]) != 0)) {
+            if (mismatches == 0)
+                printf("  *** float mismatches detected ***\n");
+            printf("  [%zu] C=%-20s  C++=%-20s  Rust=%-20s\n",
+                   i, bufs[0], bufs[1], bufs[2]);
+            mismatches++;
+        }
+    }
+    return mismatches;
+}
+
+static int verify_double(const zmij_lib_t libs[3], const double *vals,
+                         size_t count) {
+    char bufs[3][64];
+    int mismatches = 0;
+
+    for (size_t i = 0; i < count; i++) {
+        for (int k = 0; k < 3; k++) {
+            char *end = libs[k].wd(vals[i], bufs[k]);
+            *end = '\0';
+        }
+
+        if (strcmp(bufs[0], bufs[1]) != 0 ||
+            strcmp(bufs[0], bufs[2]) != 0) {
+            if (mismatches == 0)
+                printf("  *** double mismatches detected ***\n");
+            char std_buf[64];
+            snprintf(std_buf, sizeof(std_buf), "%.*g", 17, vals[i]);
+            printf("  [%zu] stdlib=%-24s  C=%-24s  C++=%-24s  Rust=%-24s\n",
+                   i, std_buf, bufs[0], bufs[1], bufs[2]);
+            mismatches++;
+        }
+    }
+    return mismatches;
+}
+
 /* ---- Main --------------------------------------------------------------- */
 
 static void usage(const char *prog) {
@@ -292,6 +362,17 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 3; i++) {
         bench_double(libs[i].name, libs[i].wd, vals.d, vals.count, rounds);
     }
+
+    /* Verify consistency across implementations */
+    printf("=== Verifying output consistency ===\n");
+    int fmm = verify_float(libs, vals.f, vals.count);
+    int dmm = verify_double(libs, vals.d, vals.count);
+    if (fmm == 0 && dmm == 0)
+        printf("  All %zu values: C, C++, Rust outputs are identical.\n",
+               vals.count);
+    else
+        printf("  float mismatches: %d, double mismatches: %d\n", fmm, dmm);
+    printf("\n");
 
     /* Cleanup */
     for (int i = 0; i < 3; i++)
