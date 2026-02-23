@@ -1639,7 +1639,6 @@ char* zmij_detail_write_float(float value, char* buffer) {
   buffer += 2;
   dec_exp = dec_exp >= 0 ? dec_exp : -dec_exp;
   memcpy(buffer, digits2(dec_exp), 2);
-  buffer[2] = '\0';
   return buffer + 2;
 }
 
@@ -1685,7 +1684,6 @@ char* zmij_detail_write_double(double value, char* buffer) {
     buffer = write_significand17(buffer + 1 - dec_exp, dec.sig, has17digits,
                                  sig_div10);
     if (ZMIJ_USE_SSE) *point = '.';
-    *buffer = '\0';
     return buffer;
   }
 
@@ -1707,10 +1705,7 @@ char* zmij_detail_write_double(double value, char* buffer) {
 
     char* dot = start + dec_exp + 1;
     *dot = '.';
-
-    buffer = buffer > dot ? buffer + 1 : dot;
-    *buffer = '\0';
-    return buffer;
+    return buffer > dot ? buffer + 1 : dot;
   }
 
   buffer = write_significand17(buffer + 1, dec.sig, has17digits, sig_div10);

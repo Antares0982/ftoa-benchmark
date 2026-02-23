@@ -2,55 +2,55 @@ clang
 
 ```
 === float benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       3787.57 ms total      8.24 ± 0.15 ns/call  (sink=6036043800)
-  C++            459660000 calls       3744.35 ms total      8.15 ± 0.34 ns/call  (sink=4160472900)
-  Rust           459660000 calls       4030.78 ms total      8.77 ± 0.36 ns/call  (sink=4160850300)
+  C              459660000 calls       3817.71 ms total      8.31 ± 0.22 ns/call  (sink=6036043800)
+  C++            459660000 calls       3759.76 ms total      8.18 ± 0.42 ns/call  (sink=4160472900)
+  Rust           459660000 calls       4010.30 ms total      8.72 ± 0.11 ns/call  (sink=4160850300)
 
 === double benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       5483.99 ms total     11.93 ± 0.34 ns/call  (sink=7896585000)
-  C++            459660000 calls       5112.92 ms total     11.12 ± 0.19 ns/call  (sink=7896585000)
-  Rust           459660000 calls       4912.29 ms total     10.69 ± 0.23 ns/call  (sink=7896789000)
+  C              459660000 calls       5448.13 ms total     11.85 ± 0.05 ns/call  (sink=7896585000)
+  C++            459660000 calls       4642.58 ms total     10.10 ± 0.10 ns/call  (sink=7896585000)
+  Rust           459660000 calls       4904.46 ms total     10.67 ± 0.05 ns/call  (sink=7896789000)
 ```
 
 clang+sse4.1
 
 ```
 === float benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       3792.52 ms total      8.25 ± 0.16 ns/call  (sink=6036043800)
-  C++            459660000 calls       3809.91 ms total      8.29 ± 0.51 ns/call  (sink=4160472900)
-  Rust           459660000 calls       4045.94 ms total      8.80 ± 0.46 ns/call  (sink=4160850300)
+  C              459660000 calls       3835.74 ms total      8.34 ± 0.38 ns/call  (sink=6036043800)
+  C++            459660000 calls       3753.93 ms total      8.17 ± 0.24 ns/call  (sink=4160472900)
+  Rust           459660000 calls       4034.08 ms total      8.78 ± 0.31 ns/call  (sink=4160850300)
 
 === double benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       5522.36 ms total     12.01 ± 0.33 ns/call  (sink=7896585000)
-  C++            459660000 calls       5172.26 ms total     11.25 ± 0.34 ns/call  (sink=7896585000)
-  Rust           459660000 calls       4357.54 ms total      9.48 ± 0.21 ns/call  (sink=7896789000)
+  C              459660000 calls       5473.46 ms total     11.91 ± 0.27 ns/call  (sink=7896585000)
+  C++            459660000 calls       4593.83 ms total      9.99 ± 0.26 ns/call  (sink=7896585000)
+  Rust           459660000 calls       4360.97 ms total      9.49 ± 0.09 ns/call  (sink=7896789000)
 ```
 
 gcc
 
 ```
 === float benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       5614.11 ms total     12.21 ± 0.22 ns/call  (sink=6036043800)
-  C++            459660000 calls       3689.67 ms total      8.03 ± 0.20 ns/call  (sink=4160472900)
-  Rust           459660000 calls       4014.05 ms total      8.73 ± 0.15 ns/call  (sink=4160850300)
+  C              459660000 calls       5677.37 ms total     12.35 ± 0.35 ns/call  (sink=6036043800)
+  C++            459660000 calls       3698.70 ms total      8.05 ± 0.31 ns/call  (sink=4160472900)
+  Rust           459660000 calls       4017.38 ms total      8.74 ± 0.19 ns/call  (sink=4160850300)
 
 === double benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       6163.17 ms total     13.41 ± 0.30 ns/call  (sink=7896585000)
-  C++            459660000 calls       5352.04 ms total     11.64 ± 0.12 ns/call  (sink=7896585000)
-  Rust           459660000 calls       4921.54 ms total     10.71 ± 0.30 ns/call  (sink=7896789000)
+  C              459660000 calls       6184.52 ms total     13.45 ± 0.33 ns/call  (sink=7896585000)
+  C++            459660000 calls       4558.73 ms total      9.92 ± 0.45 ns/call  (sink=7896585000)
+  Rust           459660000 calls       4897.78 ms total     10.66 ± 0.17 ns/call  (sink=7896789000)
 ```
 
 gcc+sse4.1
 
 ```
 === float benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       5632.71 ms total     12.25 ± 0.49 ns/call  (sink=6036043800)
-  C++            459660000 calls       3655.90 ms total      7.95 ± 0.14 ns/call  (sink=4160472900)
-  Rust           459660000 calls       4010.80 ms total      8.73 ± 0.07 ns/call  (sink=4160850300)
+  C              459660000 calls       5656.03 ms total     12.30 ± 0.22 ns/call  (sink=6036043800)
+  C++            459660000 calls       3704.23 ms total      8.06 ± 0.33 ns/call  (sink=4160472900)
+  Rust           459660000 calls       4023.75 ms total      8.75 ± 0.23 ns/call  (sink=4160850300)
 
 === double benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  C              459660000 calls       6129.39 ms total     13.33 ± 0.12 ns/call  (sink=7896585000)
-  C++            459660000 calls       5307.93 ms total     11.55 ± 0.13 ns/call  (sink=7896585000)
-  Rust           459660000 calls       4347.84 ms total      9.46 ± 0.29 ns/call  (sink=7896789000)
+  C              459660000 calls       6175.12 ms total     13.43 ± 0.50 ns/call  (sink=7896585000)
+  C++            459660000 calls       4550.73 ms total      9.90 ± 0.40 ns/call  (sink=7896585000)
+  Rust           459660000 calls       4379.98 ms total      9.53 ± 0.30 ns/call  (sink=7896789000)
 ```
 
