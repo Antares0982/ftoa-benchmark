@@ -45,7 +45,7 @@ def build_c(output_dir: Path, cc: str, extra_cflags: list[str]) -> None:
     # shared library
     run(common + ["-shared", "-o", str(so_out), str(src)])
     # assembly
-    run(common + ["-S", "-o", str(asm_out), str(src)])
+    run(common + ["-S", "-g", "-o", str(asm_out), str(src)])
 
 
 # --------------------------------------------------------------------------- #
@@ -76,7 +76,7 @@ def build_cpp(output_dir: Path, cxx: str, extra_cflags: list[str]) -> None:
     # shared library
     run(common + ["-shared", "-o", str(so_out), str(src)])
     # assembly
-    run(common + ["-S", "-o", str(asm_out), str(src)])
+    run(common + ["-S", "-g", "-o", str(asm_out), str(src)])
 
 
 # --------------------------------------------------------------------------- #
@@ -120,7 +120,7 @@ def build_rust(output_dir: Path, extra_rustflags: str) -> None:
     shutil.copy2(so_src, so_dst)
     print(f"  → copied {so_src} → {so_dst}")
 
-    # Generate assembly
+    # Generate assembly (with debug info for source annotations)
     run(
         [
             "cargo",
@@ -130,6 +130,8 @@ def build_rust(output_dir: Path, extra_rustflags: str) -> None:
             str(rust_dir / "Cargo.toml"),
             "--",
             "--emit=asm",
+            "-C",
+            "debuginfo=2",
         ],
         env=env,
     )
