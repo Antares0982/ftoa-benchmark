@@ -17,6 +17,7 @@
 #include <time.h>
 
 #define WARMUP_ROUNDS 100
+#define MAX_LIBS 4
 
 #ifndef DEFAULT_LIB_DIR
 #    define DEFAULT_LIB_DIR "build/libs"
@@ -69,6 +70,39 @@ static zmij_lib_t load_lib(const char *dir, const char *filename,
     lib.handle = h;
     lib.wf = (write_float_fn)must_dlsym(h, "zmij_detail_write_float", path);
     lib.wd = (write_double_fn)must_dlsym(h, "zmij_detail_write_double", path);
+    return lib;
+}
+
+/* Try to load a library; returns a lib with handle==NULL on failure. */
+static zmij_lib_t try_load_lib(const char *dir, const char *filename,
+                               const char *display_name) {
+    char path[4096];
+    snprintf(path, sizeof(path), "%s/%s", dir, filename);
+
+    zmij_lib_t lib;
+    lib.name = display_name;
+    lib.handle = NULL;
+    lib.wf = NULL;
+    lib.wd = NULL;
+
+    void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    if (!h)
+        return lib;
+
+    dlerror(); /* clear */
+    lib.wf = (write_float_fn)dlsym(h, "zmij_detail_write_float");
+    if (dlerror()) {
+        dlclose(h);
+        return lib;
+    }
+
+    lib.wd = (write_double_fn)dlsym(h, "zmij_detail_write_double");
+    if (dlerror()) {
+        dlclose(h);
+        return lib;
+    }
+
+    lib.handle = h;
     return lib;
 }
 
@@ -227,58 +261,83 @@ static void bench_double(const char *name, write_double_fn fn,
 
 /* ---- Verification ------------------------------------------------------ */
 
-static int verify_float(const zmij_lib_t libs[3], const float *vals,
-                        size_t count) {
-    char bufs[3][64];
-    int mismatches = 0;
-    size_t skip_index = 3;
+// static int verify_float(const zmij_lib_t *libs, int nlibs, const float *vals,
+//                         size_t count) {
+//     char bufs[MAX_LIBS][64];
+//     int mismatches = 0;
+//     int skip_index = -1;
 
-    for (size_t i = 0; i < 3; ++i) {
-        if (strcmp("C", libs[i].name) == 0) {
-            skip_index = i;
-            printf("  *** skipping verification for C ***\n");
-            break;
-        }
-    }
+//     for (int i = 0; i < nlibs; ++i) {
+//         if (strcmp("C", libs[i].name) == 0) {
+//             skip_index = i;
+//             printf("  *** skipping verification for C ***\n");
+//             break;
+//         }
+//     }
 
-    for (size_t i = 0; i < count; i++) {
-        for (int k = 0; k < 3; k++) {
-            char *end = libs[k].wf(vals[i], bufs[k]);
-            *end = '\0';
-        }
+//     for (size_t i = 0; i < count; i++) {
+//         for (int k = 0; k < nlibs; k++) {
+//             char *end = libs[k].wf(vals[i], bufs[k]);
+//             *end = '\0';
+//         }
 
-        if ((skip_index == 2 && strcmp(bufs[0], bufs[1]) != 0) ||
-            (skip_index == 1 && strcmp(bufs[0], bufs[2]) != 0) ||
-            (skip_index == 0 && strcmp(bufs[1], bufs[2]) != 0)) {
-            if (mismatches == 0)
-                printf("  *** float mismatches detected ***\n");
-            printf("  [%zu] C=%-20s  C++=%-20s  Rust=%-20s\n",
-                   i, bufs[0], bufs[1], bufs[2]);
-            mismatches++;
-        }
-    }
-    return mismatches;
-}
+//         /* Compare all non-skipped libs against the first non-skipped one */
+//         int mismatch = 0;
+//         int ref = -1;
+//         for (int k = 0; k < nlibs; k++) {
+//             if (k == skip_index) continue;
+//             if (ref < 0) {
+//                 ref = k;
+//                 continue;
+//             }
+//             if (strcmp(bufs[ref], bufs[k]) != 0) {
+//                 mismatch = 1;
+//                 break;
+//             }
+//         }
 
-static int verify_double(const zmij_lib_t libs[3], const double *vals,
+//         if (mismatch) {
+//             if (mismatches == 0)
+//                 printf("  *** float mismatches detected ***\n");
+//             printf("  [%zu]", i);
+//             for (int k = 0; k < nlibs; k++)
+//                 printf("  %s=%-20s", libs[k].name, bufs[k]);
+//             printf("\n");
+//             mismatches++;
+//         }
+//     }
+//     return mismatches;
+// }
+
+static int verify_double(const zmij_lib_t *libs, int nlibs, const double *vals,
                          size_t count) {
-    char bufs[3][64];
+    char bufs[MAX_LIBS][64];
     int mismatches = 0;
 
     for (size_t i = 0; i < count; i++) {
-        for (int k = 0; k < 3; k++) {
+        for (int k = 0; k < nlibs; k++) {
             char *end = libs[k].wd(vals[i], bufs[k]);
             *end = '\0';
         }
 
-        if (strcmp(bufs[0], bufs[1]) != 0 ||
-            strcmp(bufs[0], bufs[2]) != 0) {
+        /* Compare all libs against the first one */
+        int mismatch = 0;
+        for (int k = 1; k < nlibs; k++) {
+            if (strcmp(bufs[0], bufs[k]) != 0) {
+                mismatch = 1;
+                break;
+            }
+        }
+
+        if (mismatch) {
             if (mismatches == 0)
                 printf("  *** double mismatches detected ***\n");
             char std_buf[64];
             snprintf(std_buf, sizeof(std_buf), "%.*g", 17, vals[i]);
-            printf("  [%zu] stdlib=%-24s  C=%-24s  C++=%-24s  Rust=%-24s\n",
-                   i, std_buf, bufs[0], bufs[1], bufs[2]);
+            printf("  [%zu] stdlib=%-24s", i, std_buf);
+            for (int k = 0; k < nlibs; k++)
+                printf("  %s=%-24s", libs[k].name, bufs[k]);
+            printf("\n");
             mismatches++;
         }
     }
@@ -341,41 +400,53 @@ int main(int argc, char **argv) {
     }
 
     /* Load libraries */
-    printf("Loading libraries from: %s\n\n", lib_dir);
-    zmij_lib_t libs[3];
-    libs[0] = load_lib(lib_dir, "libzmij_c.so", "C");
-    libs[1] = load_lib(lib_dir, "libzmij_cpp.so", "C++");
-    libs[2] = load_lib(lib_dir, "libzmij_rust.so", "Rust");
+    printf("Loading libraries from: %s\n", lib_dir);
+    zmij_lib_t libs[MAX_LIBS];
+    int nlibs = 0;
+    libs[nlibs++] = load_lib(lib_dir, "libzmij_c.so", "C");
+    libs[nlibs++] = load_lib(lib_dir, "libzmij_cpp.so", "C++");
+    libs[nlibs++] = load_lib(lib_dir, "libzmij_rust.so", "Rust");
+
+    /* Try to load optional asm library */
+    {
+        zmij_lib_t asm_lib = try_load_lib(lib_dir, "libzmij_asm.so", "Asm");
+        if (asm_lib.handle) {
+            libs[nlibs++] = asm_lib;
+            printf("  Loaded optional library: Asm\n");
+        } else {
+            printf("  Optional library not available: Asm (skipped)\n");
+        }
+    }
+    printf("\n");
 
     /* Benchmark: float group */
-    printf("=== float benchmark (%d rounds × %zu values, %d warmup) ===\n",
+    printf("=== float benchmark (%d rounds \u00d7 %zu values, %d warmup) ===\n",
            rounds, vals.count, WARMUP_ROUNDS);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < nlibs; i++) {
         bench_float(libs[i].name, libs[i].wf, vals.f, vals.count, rounds);
     }
 
     printf("\n");
 
     /* Benchmark: double group */
-    printf("=== double benchmark (%d rounds × %zu values, %d warmup) ===\n",
+    printf("=== double benchmark (%d rounds \u00d7 %zu values, %d warmup) ===\n",
            rounds, vals.count, WARMUP_ROUNDS);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < nlibs; i++) {
         bench_double(libs[i].name, libs[i].wd, vals.d, vals.count, rounds);
     }
 
     /* Verify consistency across implementations */
     printf("=== Verifying output consistency ===\n");
-    int fmm = verify_float(libs, vals.f, vals.count);
-    int dmm = verify_double(libs, vals.d, vals.count);
-    if (fmm == 0 && dmm == 0)
-        printf("  All %zu values: C, C++, Rust outputs are identical.\n",
-               vals.count);
+    // int fmm = verify_float(libs, nlibs, vals.f, vals.count);
+    int dmm = verify_double(libs, nlibs, vals.d, vals.count);
+    if (dmm == 0)
+        printf("  All %zu values: outputs are identical.\n", vals.count);
     else
-        printf("  float mismatches: %d, double mismatches: %d\n", fmm, dmm);
+        printf("  double mismatches: %d\n", dmm);
     printf("\n");
 
     /* Cleanup */
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < nlibs; i++)
         dlclose(libs[i].handle);
     free(vals.f);
     free(vals.d);

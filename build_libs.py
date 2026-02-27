@@ -7,11 +7,11 @@ available in PATH.
 
 import argparse
 import os
+import platform
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parent
 
@@ -151,6 +151,72 @@ def build_rust(output_dir: Path, extra_rustflags: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Asm build (optional)
+# --------------------------------------------------------------------------- #
+
+
+def get_rust_target_triple() -> str:
+    """Return the Rust-style target triple for the current platform."""
+    machine = platform.machine()
+    system = platform.system()
+
+    if system == "Linux":
+        if machine == "x86_64":
+            return "x86_64-unknown-linux-gnu"
+        if machine == "aarch64":
+            return "aarch64-unknown-linux-gnu"
+    elif system == "Darwin":
+        if machine in ("arm64", "aarch64"):
+            return "aarch64-apple-darwin"
+        if machine == "x86_64":
+            return "x86_64-apple-darwin"
+
+    raise RuntimeError(f"Unsupported platform: {machine}-{system}")
+
+
+def build_asm(output_dir: Path, cc: str, extra_cflags: list[str]) -> bool:
+    """Build zmij-asm if the directory and platform source exist. Returns True if built."""
+    asm_dir = ROOT / "zmij-asm"
+    if not asm_dir.is_dir():
+        print("\n=== Skipping zmij-asm (directory not found) ===", flush=True)
+        return False
+
+    print("\n=== Building zmij-asm ===", flush=True)
+
+    triple = get_rust_target_triple()
+    src = asm_dir / f"zmij-{triple}.s"
+
+    if not src.exists():
+        print(
+            f"  ⚠ Assembly source not found for this platform: {src}", file=sys.stderr
+        )
+        return False
+
+    so_out = output_dir / "libzmij_asm.so"
+    asm_copy = output_dir / "zmij_asm.s"
+
+    # Copy source assembly to build/libs/
+    shutil.copy2(src, asm_copy)
+    print(f"  → copied {src} → {asm_copy}")
+
+    # Assemble into shared library (use C compiler driver to handle linking)
+    cmd = (
+        [
+            cc,
+            "-O3",
+            "-fPIC",
+            "-fno-stack-protector",
+            "-fomit-frame-pointer",
+        ]
+        + extra_cflags
+        + ["-shared", "-o", str(so_out), str(src)]
+    )
+
+    run(cmd)
+    return True
+
+
+# --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
 
@@ -198,6 +264,7 @@ def main() -> None:
     build_c(output_dir, cc, extra_cflags)
     build_cpp(output_dir, cxx, extra_cflags)
     build_rust(output_dir, extra_rustflags)
+    build_asm(output_dir, cc, extra_cflags)
 
     print("\n=== Done ===")
     print(f"Libraries and assembly files in: {output_dir}")
