@@ -1304,13 +1304,13 @@ use private::Sealed;
 /// # Safety
 /// `buffer` must point to a writable buffer of at least 16 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn zmij_detail_write_float(value: f32, buffer: *mut u8) -> *mut u8 {
+pub unsafe extern "C" fn zmijrust_detail_write_float(value: f32, buffer: *mut u8) -> *mut u8 {
     unsafe { value.write_to_zmij_buffer(buffer) }
 }
 
 /// # Safety
 /// `buffer` must point to a writable buffer of at least 25 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn zmij_detail_write_double(value: f64, buffer: *mut u8) -> *mut u8 {
+pub unsafe extern "C" fn zmijrust_detail_write_double(value: f64, buffer: *mut u8) -> *mut u8 {
     unsafe { value.write_to_zmij_buffer(buffer) }
 }

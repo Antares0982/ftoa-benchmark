@@ -55,7 +55,8 @@ static void* must_dlsym(void* handle, const char* sym, const char* lib_name) {
 }
 
 static zmij_lib_t load_lib(const char* dir, const char* filename,
-                           const char* display_name) {
+                           const char* display_name, const char* sym_float,
+                           const char* sym_double) {
   char path[4096];
   snprintf(path, sizeof(path), "%s/%s", dir, filename);
 
@@ -68,14 +69,15 @@ static zmij_lib_t load_lib(const char* dir, const char* filename,
   zmij_lib_t lib;
   lib.name = display_name;
   lib.handle = h;
-  lib.wf = (write_float_fn)must_dlsym(h, "zmij_detail_write_float", path);
-  lib.wd = (write_double_fn)must_dlsym(h, "zmij_detail_write_double", path);
+  lib.wf = (write_float_fn)must_dlsym(h, sym_float, path);
+  lib.wd = (write_double_fn)must_dlsym(h, sym_double, path);
   return lib;
 }
 
 /* Try to load a library; returns a lib with handle==NULL on failure. */
 static zmij_lib_t try_load_lib(const char* dir, const char* filename,
-                               const char* display_name) {
+                               const char* display_name, const char* sym_float,
+                               const char* sym_double) {
   char path[4096];
   snprintf(path, sizeof(path), "%s/%s", dir, filename);
 
@@ -89,13 +91,13 @@ static zmij_lib_t try_load_lib(const char* dir, const char* filename,
   if (!h) return lib;
 
   dlerror(); /* clear */
-  lib.wf = (write_float_fn)dlsym(h, "zmij_detail_write_float");
+  lib.wf = (write_float_fn)dlsym(h, sym_float);
   if (dlerror()) {
     dlclose(h);
     return lib;
   }
 
-  lib.wd = (write_double_fn)dlsym(h, "zmij_detail_write_double");
+  lib.wd = (write_double_fn)dlsym(h, sym_double);
   if (dlerror()) {
     dlclose(h);
     return lib;
@@ -400,14 +402,22 @@ int main(int argc, char** argv) {
   printf("Loading libraries from: %s\n", lib_dir);
   zmij_lib_t libs[MAX_LIBS];
   int nlibs = 0;
-  libs[nlibs++] = load_lib(lib_dir, "libzmij_c.so", "C");
-  libs[nlibs++] = load_lib(lib_dir, "libzmij_cpp.so", "C++");
-  libs[nlibs++] = load_lib(lib_dir, "libzmij_rust.so", "Rust");
-  libs[nlibs++] = load_lib(lib_dir, "libxjb.so", "xjb");
+  libs[nlibs++] =
+      load_lib(lib_dir, "libzmij_c.so", "C", "zmij_detail_write_float",
+               "zmij_detail_write_double");
+  libs[nlibs++] =
+      load_lib(lib_dir, "libzmij_cpp.so", "C++", "zmijcpp_detail_write_float",
+               "zmijcpp_detail_write_double");
+  libs[nlibs++] =
+      load_lib(lib_dir, "libzmij_rust.so", "Rust",
+               "zmijrust_detail_write_float", "zmijrust_detail_write_double");
+  libs[nlibs++] = load_lib(lib_dir, "libxjb.so", "xjb", "xjb32", "xjb64");
 
   /* Try to load optional asm library */
   {
-    zmij_lib_t asm_lib = try_load_lib(lib_dir, "libzmij_asm.so", "Asm");
+    zmij_lib_t asm_lib =
+        try_load_lib(lib_dir, "libzmij_asm.so", "Asm",
+                     "zmij_detail_write_float", "zmij_detail_write_double");
     if (asm_lib.handle) {
       libs[nlibs++] = asm_lib;
       printf("  Loaded optional library: Asm\n");

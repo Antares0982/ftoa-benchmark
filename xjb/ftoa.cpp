@@ -1588,12 +1588,12 @@ namespace xjb
 
 extern "C" {
 
-__attribute__((visibility("default"))) char* zmij_detail_write_float(
+__attribute__((visibility("default"))) char* xjb32(
     float value, char* buffer) {
   return xjb::xjb32(value, buffer);
 }
 
-__attribute__((visibility("default"))) char* zmij_detail_write_double(
+__attribute__((visibility("default"))) char* xjb64(
     double value, char* buffer) {
   return xjb::xjb64(value, buffer);
 }

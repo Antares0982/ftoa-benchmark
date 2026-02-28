@@ -1193,12 +1193,12 @@ ZMIJ_INLINE auto write(Float value, char* buffer) noexcept -> char* {
 
 extern "C" {
 
-__attribute__((visibility("default"))) char* zmij_detail_write_float(
+__attribute__((visibility("default"))) char* zmijcpp_detail_write_float(
     float value, char* buffer) {
   return zmij::detail::write(value, buffer);
 }
 
-__attribute__((visibility("default"))) char* zmij_detail_write_double(
+__attribute__((visibility("default"))) char* zmijcpp_detail_write_double(
     double value, char* buffer) {
   return zmij::detail::write(value, buffer);
 }
