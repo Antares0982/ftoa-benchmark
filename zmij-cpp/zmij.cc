@@ -972,7 +972,7 @@ namespace detail {
 
 // It is slightly faster to return a pointer to the end than the size.
 template <typename Float>
-auto write(Float value, char* buffer) noexcept -> char* {
+ZMIJ_INLINE auto write(Float value, char* buffer) noexcept -> char* {
   using traits = float_traits<Float>;
   auto bits = traits::to_bits(value);
   // It is beneficial to extract exponent and significand early.
@@ -1039,8 +1039,8 @@ auto write(Float value, char* buffer) noexcept -> char* {
   return buffer + 2;
 }
 
-template auto write(float value, char* buffer) noexcept -> char*;
-template auto write(double value, char* buffer) noexcept -> char*;
+// template auto write(float value, char* buffer) noexcept -> char*;
+// template auto write(double value, char* buffer) noexcept -> char*;
 
 }  // namespace detail
 }  // namespace zmij
