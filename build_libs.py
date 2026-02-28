@@ -152,6 +152,36 @@ def build_rust(output_dir: Path, extra_rustflags: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# xjb build
+# --------------------------------------------------------------------------- #
+
+
+def build_xjb(output_dir: Path, cxx: str, extra_cflags: list[str]) -> None:
+    print("\n=== Building xjb ===", flush=True)
+    xjb_dir = ROOT / "xjb"
+    src = xjb_dir / "ftoa.cpp"
+    so_out = output_dir / "libxjb.so"
+    asm_out = output_dir / "xjb.s"
+
+    common = [
+        cxx,
+        "-std=c++17",
+        "-O3",
+        "-DNDEBUG",
+        "-fPIC",
+        "-fvisibility=hidden",
+        "-fno-stack-protector",
+        "-fomit-frame-pointer",
+        f"-I{xjb_dir}",
+    ] + extra_cflags
+
+    # shared library
+    run(common + ["-shared", "-o", str(so_out), str(src)])
+    # assembly
+    run(common + ["-S", "-g", "-o", str(asm_out), str(src)])
+
+
+# --------------------------------------------------------------------------- #
 # Asm build (optional)
 # --------------------------------------------------------------------------- #
 
@@ -265,6 +295,7 @@ def main() -> None:
     build_c(output_dir, cc, extra_cflags)
     build_cpp(output_dir, cxx, extra_cflags)
     build_rust(output_dir, extra_rustflags)
+    build_xjb(output_dir, cxx, extra_cflags)
     build_asm(output_dir, cc, extra_cflags)
 
     print("\n=== Done ===")

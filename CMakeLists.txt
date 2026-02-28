@@ -22,7 +22,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${LIB_OUTPUT_DIR}/libzmij_c.so" "${LIB_OUTPUT_DIR}/libzmij_cpp.so"
-         "${LIB_OUTPUT_DIR}/libzmij_rust.so"
+         "${LIB_OUTPUT_DIR}/libzmij_rust.so" "${LIB_OUTPUT_DIR}/libxjb.so"
   COMMAND python3 ${BUILD_LIBS_ARGS}
   DEPENDS "${PYTHON_SCRIPT}"
           "${CMAKE_SOURCE_DIR}/zmij-c/zmij.c"
@@ -31,6 +31,7 @@ add_custom_command(
           "${CMAKE_SOURCE_DIR}/zmij-cpp/zmij.h"
           "${CMAKE_SOURCE_DIR}/zmij-rust/src/lib.rs"
           "${CMAKE_SOURCE_DIR}/zmij-rust/Cargo.toml"
+          "${CMAKE_SOURCE_DIR}/xjb/ftoa.cpp"
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   COMMENT "Building zmij shared libraries via build_libs.py"
   VERBATIM)
@@ -38,7 +39,7 @@ add_custom_command(
 add_custom_target(
   zmij_libs ALL
   DEPENDS "${LIB_OUTPUT_DIR}/libzmij_c.so" "${LIB_OUTPUT_DIR}/libzmij_cpp.so"
-          "${LIB_OUTPUT_DIR}/libzmij_rust.so")
+          "${LIB_OUTPUT_DIR}/libzmij_rust.so" "${LIB_OUTPUT_DIR}/libxjb.so")
 
 # --------------------------------------------------------------------------- #
 # Benchmark executable

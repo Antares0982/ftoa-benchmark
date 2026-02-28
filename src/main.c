@@ -17,7 +17,7 @@
 #include <time.h>
 
 #define WARMUP_ROUNDS 100
-#define MAX_LIBS 4
+#define MAX_LIBS 5
 
 #ifndef DEFAULT_LIB_DIR
 #  define DEFAULT_LIB_DIR "build/libs"
@@ -403,6 +403,7 @@ int main(int argc, char** argv) {
   libs[nlibs++] = load_lib(lib_dir, "libzmij_c.so", "C");
   libs[nlibs++] = load_lib(lib_dir, "libzmij_cpp.so", "C++");
   libs[nlibs++] = load_lib(lib_dir, "libzmij_rust.so", "Rust");
+  libs[nlibs++] = load_lib(lib_dir, "libxjb.so", "xjb");
 
   /* Try to load optional asm library */
   {
