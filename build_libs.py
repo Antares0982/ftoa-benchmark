@@ -68,6 +68,7 @@ def build_cpp(output_dir: Path, cxx: str, extra_cflags: list[str]) -> None:
         "-O3",
         "-DNDEBUG",
         "-fPIC",
+        "-fvisibility=hidden",
         "-fno-stack-protector",
         "-fomit-frame-pointer",
         f"-I{cpp_dir}",

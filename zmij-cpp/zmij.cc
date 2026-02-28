@@ -920,8 +920,8 @@ auto write_fixed(char* buffer, uint64_t dec_sig, int dec_exp,
                  bool extra_digit) noexcept -> char* {
   if (dec_exp < 0) {
     memcpy(buffer, "0.000000", 8);
-    return
-        write_significand<num_bits>(buffer + 1 - dec_exp, dec_sig, extra_digit);
+    return write_significand<num_bits>(buffer + 1 - dec_exp, dec_sig,
+                                       extra_digit);
   }
 
   // Avoid reading uninitialized memory (would be unnecessary in asm).
@@ -1051,12 +1051,14 @@ ZMIJ_INLINE auto write(Float value, char* buffer) noexcept -> char* {
 
 extern "C" {
 
-char* zmij_detail_write_float(float value, char* buffer) {
-    return zmij::detail::write(value, buffer);
+__attribute__((visibility("default"))) char* zmij_detail_write_float(
+    float value, char* buffer) {
+  return zmij::detail::write(value, buffer);
 }
 
-char* zmij_detail_write_double(double value, char* buffer) {
-    return zmij::detail::write(value, buffer);
+__attribute__((visibility("default"))) char* zmij_detail_write_double(
+    double value, char* buffer) {
+  return zmij::detail::write(value, buffer);
 }
 
 }  // extern "C"
