@@ -45,7 +45,7 @@ add_custom_target(
 # Benchmark executable
 # --------------------------------------------------------------------------- #
 
-add_executable(zmij_benchmark src/main.c)
+add_executable(zmij_benchmark src/benchmark.c)
 target_link_libraries(zmij_benchmark PRIVATE dl m)
 target_compile_options(zmij_benchmark PRIVATE -O2 -Wall -Wextra)
 add_dependencies(zmij_benchmark zmij_libs)
