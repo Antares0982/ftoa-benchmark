@@ -36,6 +36,19 @@ The benchmark reads one floating-point number per line from a text file `test_in
 
 ## Building
 
+### Note
+
+If you want to replace current code with another file, please note these things for force inlining (without an additional `jmp`/`call` instruction):
+1. For zmij C++ impl, 
+```C++
+// template auto write(float value, char* buffer) noexcept -> char*;
+// template auto write(double value, char* buffer) noexcept -> char*;
+```
+these two lines should be commented out, and `ZMIJ_INLINE` should be added to the function `write`.
+2. For xjb, you need to add `static inline` to xjb64 and xjb32 functions.
+2. For Rust impl it is suggested to add a `#[inline]` before `write_to_zmij_buffer`.
+
+
 ### Full CMake Build
 
 ```bash

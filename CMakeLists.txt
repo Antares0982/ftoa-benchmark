@@ -54,3 +54,19 @@ add_dependencies(zmij_benchmark zmij_libs)
 # locate .so files at runtime by default.
 target_compile_definitions(zmij_benchmark
                            PRIVATE DEFAULT_LIB_DIR="${LIB_OUTPUT_DIR}")
+
+# --------------------------------------------------------------------------- #
+# Generic dtoa benchmark (any library)
+# --------------------------------------------------------------------------- #
+
+add_executable(any_dtoa_benchmark src/any_dtoa_benchmark.c)
+target_link_libraries(any_dtoa_benchmark PRIVATE dl m)
+target_compile_options(any_dtoa_benchmark PRIVATE -O2 -Wall -Wextra)
+
+# --------------------------------------------------------------------------- #
+# Dtoa verifier
+# --------------------------------------------------------------------------- #
+
+add_executable(verifier src/verifier.c)
+target_link_libraries(verifier PRIVATE dl)
+target_compile_options(verifier PRIVATE -O2 -Wall -Wextra)
