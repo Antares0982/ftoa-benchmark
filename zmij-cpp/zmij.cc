@@ -29,7 +29,7 @@ struct dec_fp {
 #endif
 
 #ifdef ZMIJ_USE_NEON
-// Use the provided definition
+// Use the provided definition.
 #elif defined(__ARM_NEON) || defined(_M_ARM64)
 #  define ZMIJ_USE_NEON ZMIJ_USE_SIMD
 #else
@@ -40,10 +40,10 @@ struct dec_fp {
 #endif
 
 #ifdef ZMIJ_USE_SSE
-// Use the provided definition
+// Use the provided definition.
 #elif defined(__SSE2__)
 #  define ZMIJ_USE_SSE ZMIJ_USE_SIMD
-#elif defined(_M_AMD64) || (defined(_M_IX86_FP) && _M_IX86FP == 2)
+#elif defined(_M_AMD64) || (defined(_M_IX86_FP) && _M_IX86_FP == 2)
 #  define ZMIJ_USE_SSE ZMIJ_USE_SIMD
 #else
 #  define ZMIJ_USE_SSE 0
@@ -53,7 +53,7 @@ struct dec_fp {
 #endif
 
 #ifdef ZMIJ_USE_SSE4_1
-// Use the provided definition
+// Use the provided definition.
 static_assert(!ZMIJ_USE_SSE4_1 || ZMIJ_USE_SSE);
 #elif defined(__SSE4_1__) || defined(__AVX__)
 // On MSVC there's no way to check for SSE4.1 specifically so check __AVX__.
@@ -118,11 +118,14 @@ static_assert(!ZMIJ_USE_SSE4_1 || ZMIJ_USE_SSE);
 #endif
 
 #ifdef ZMIJ_OPTIMIZE_SIZE
-// Use the provided definition
+// Use the provided definition.
 #elif defined(__OPTIMIZE_SIZE__)
 #  define ZMIJ_OPTIMIZE_SIZE 1
 #else
 #  define ZMIJ_OPTIMIZE_SIZE 0
+#endif
+#ifndef ZMIJ_USE_EXP_STRING_TABLE
+#  define ZMIJ_USE_EXP_STRING_TABLE 0
 #endif
 
 #if ZMIJ_HAS_ATTRIBUTE(always_inline) && !ZMIJ_OPTIMIZE_SIZE
@@ -145,14 +148,15 @@ namespace {
 using std::is_constant_evaluated;
 #  define ZMIJ_CONSTEXPR constexpr
 #else
-auto is_constant_evaluated() -> bool { return false; }
+inline auto is_constant_evaluated() -> bool { return false; }
 #  define ZMIJ_CONSTEXPR
 #endif
 
-inline auto is_big_endian() noexcept -> bool {
-  int n = 1;
-  return *reinterpret_cast<char*>(&n) != 1;
-}
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+constexpr bool is_big_endian = true;
+#else
+constexpr bool is_big_endian = false;
+#endif
 
 inline auto bswap64(uint64_t x) noexcept -> uint64_t {
 #if ZMIJ_HAS_BUILTIN(__builtin_bswap64)
@@ -201,17 +205,14 @@ inline auto ctz32(uint32_t x) noexcept -> int {
   _BitScanForward(&r, x);
   return r;
 #else
-  /*
-  branchless, use de Bruijn sequences
-  see: https://www.chessprogramming.org/BitScan
-  */
-  constexpr int table[64] = {0,  1,  2,  53, 3,  7,  54, 27, 4,  38, 41, 8,  34,
-                             55, 48, 28, 62, 5,  39, 46, 44, 42, 22, 9,  24, 35,
-                             59, 56, 49, 18, 29, 11, 63, 52, 6,  26, 37, 40, 33,
-                             47, 61, 45, 43, 21, 23, 58, 17, 10, 51, 25, 36, 32,
-                             60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12};
-  return table[(((uint64_t)x & (~(uint64_t)x + 1)) *
-                ((((uint64_t)0x022FDD63UL) << 32U) + 0xCC95386DUL)) >>
+  // Branchless using de Bruijn sequences:
+  // https://www.chessprogramming.org/BitScan.
+  static constexpr int table[64] = {
+      0,  1,  2,  53, 3,  7,  54, 27, 4,  38, 41, 8,  34, 55, 48, 28,
+      62, 5,  39, 46, 44, 42, 22, 9,  24, 35, 59, 56, 49, 18, 29, 11,
+      63, 52, 6,  26, 37, 40, 33, 47, 61, 45, 43, 21, 23, 58, 17, 10,
+      51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12};
+  return table[((x & (~x + 1)) * ((uint64_t(0x022FDD63) << 32) + 0xCC95386D)) >>
                58];
 #endif
 }
@@ -238,26 +239,11 @@ struct uint128 {
 
   [[ZMIJ_MAYBE_UNUSED]] constexpr auto operator>>(int shift) const noexcept
       -> uint128 {
-    if (shift == 32) {
-      uint64_t hilo = uint32_t(hi);
-      return {hi >> 32, (hilo << 32) | (lo >> 32)};
-    }
+    if (shift == 32) return {hi >> 32, (hi << 32) | (lo >> 32)};
     assert(shift >= 64 && shift < 128);
     return {0, hi >> (shift - 64)};
   }
 };
-
-[[ZMIJ_MAYBE_UNUSED]] inline auto operator+(uint128 lhs, uint128 rhs) noexcept
-    -> uint128 {
-#ifdef _M_AMD64
-  uint64_t lo, hi;
-  _addcarry_u64(_addcarry_u64(0, lhs.lo, rhs.lo, &lo), lhs.hi, rhs.hi, &hi);
-  return {hi, lo};
-#else
-  uint64_t lo = lhs.lo + rhs.lo;
-  return {lhs.hi + rhs.hi + (lo < lhs.lo), lo};
-#endif  // _M_AMD64
-}
 
 #ifdef ZMIJ_USE_INT128
 // Use the provided definition.
@@ -362,11 +348,7 @@ template <typename Float> struct float_traits : std::numeric_limits<Float> {
   }
 };
 
-constexpr auto floor_log2_pow10(int e) noexcept -> int {
-  return e * 1741647 >> 19;
-}
-
-constexpr uint64_t pow10s[] = {
+constexpr uint64_t pow10_minor[] = {
     0x8000000000000000, 0xa000000000000000, 0xc800000000000000,
     0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
     0xf424000000000000, 0x9896800000000000, 0xbebc200000000000,
@@ -378,48 +360,49 @@ constexpr uint64_t pow10s[] = {
     0xd3c21bcecceda100, 0x84595161401484a0, 0xa56fa5b99019a5c8,
     0xcecb8f27f4200f3a,
 };
-constexpr uint128 high_parts[] = {
-    {0xaf8e5410288e1b6f, 0x07ecf0ae5ee44dda},
-    {0xb1442798f49ffb4a, 0x99cd11cfdf41779d},
-    {0xb2fe3f0b8599ef07, 0x861fa7e6dcb4aa15},
-    {0xb4bca50b065abe63, 0x0fed077a756b53aa},
-    {0xb67f6455292cbf08, 0x1a3bc84c17b1d543},
-    {0xb84687c269ef3bfb, 0x3d5d514f40eea742},
-    {0xba121a4650e4ddeb, 0x92f34d62616ce413},
-    {0xbbe226efb628afea, 0x890489f70a55368c},
-    {0xbdb6b8e905cb600f, 0x5400e987bbc1c921},
-    {0xbf8fdb78849a5f96, 0xde98520472bdd034},
-    {0xc16d9a0095928a27, 0x75b7053c0f178294},
-    {0xc350000000000000, 0x0000000000000000},
-    {0xc5371912364ce305, 0x6c28000000000000},
-    {0xc722f0ef9d80aad6, 0x424d3ad2b7b97ef6},
-    {0xc913936dd571c84c, 0x03bc3a19cd1e38ea},
-    {0xcb090c8001ab551c, 0x5cadf5bfd3072cc6},
-    {0xcd036837130890a1, 0x36dba887c37a8c10},
-    {0xcf02b2c21207ef2e, 0x94f967e45e03f4bc},
-    {0xd106f86e69d785c7, 0xe13336d701beba52},
-    {0xd31045a8341ca07c, 0x1ede48111209a051},
-    {0xd51ea6fa85785631, 0x552a74227f3ea566},
-    {0xd732290fbacaf133, 0xa97c177947ad4096},
-    {0xd94ad8b1c7380874, 0x18375281ae7822bc},
+constexpr uint128 pow10_major[] = {
+    {0xaf8e5410288e1b6f, 0x07ecf0ae5ee44dda},  // -303
+    {0xb1442798f49ffb4a, 0x99cd11cfdf41779d},  // -275
+    {0xb2fe3f0b8599ef07, 0x861fa7e6dcb4aa15},  // -247
+    {0xb4bca50b065abe63, 0x0fed077a756b53aa},  // -219
+    {0xb67f6455292cbf08, 0x1a3bc84c17b1d543},  // -191
+    {0xb84687c269ef3bfb, 0x3d5d514f40eea742},  // -163
+    {0xba121a4650e4ddeb, 0x92f34d62616ce413},  // -135
+    {0xbbe226efb628afea, 0x890489f70a55368c},  // -107
+    {0xbdb6b8e905cb600f, 0x5400e987bbc1c921},  //  -79
+    {0xbf8fdb78849a5f96, 0xde98520472bdd034},  //  -51
+    {0xc16d9a0095928a27, 0x75b7053c0f178294},  //  -23
+    {0xc350000000000000, 0x0000000000000000},  //    5
+    {0xc5371912364ce305, 0x6c28000000000000},  //   33
+    {0xc722f0ef9d80aad6, 0x424d3ad2b7b97ef6},  //   61
+    {0xc913936dd571c84c, 0x03bc3a19cd1e38ea},  //   89
+    {0xcb090c8001ab551c, 0x5cadf5bfd3072cc6},  //  117
+    {0xcd036837130890a1, 0x36dba887c37a8c10},  //  145
+    {0xcf02b2c21207ef2e, 0x94f967e45e03f4bc},  //  173
+    {0xd106f86e69d785c7, 0xe13336d701beba52},  //  201
+    {0xd31045a8341ca07c, 0x1ede48111209a051},  //  229
+    {0xd51ea6fa85785631, 0x552a74227f3ea566},  //  257
+    {0xd732290fbacaf133, 0xa97c177947ad4096},  //  285
+    {0xd94ad8b1c7380874, 0x18375281ae7822bc},  //  313
 };
-constexpr uint32_t fixups[] = {0x05271b1f, 0x00000c20, 0x00003200, 0x12100020,
-                               0x00000000, 0x06000000, 0xc16409c0, 0xaf26700f,
-                               0xeb987b07, 0x0000000d, 0x00000000, 0x66fbfffe,
-                               0xb74100ec, 0xa0669fe8, 0xedb21280, 0x00000686,
-                               0x0a021200, 0x29b89c20, 0x08bc0eda, 0x00000000};
+constexpr uint32_t pow10_fixups[] = {
+    0x05271b1f, 0x00000c20, 0x00003200, 0x12100020, 0x00000000,
+    0x06000000, 0xc16409c0, 0xaf26700f, 0xeb987b07, 0x0000000d,
+    0x00000000, 0x66fbfffe, 0xb74100ec, 0xa0669fe8, 0xedb21280,
+    0x00000686, 0x0a021200, 0x29b89c20, 0x08bc0eda, 0x00000000};
 
 // 128-bit significands of powers of 10 rounded down.
 struct pow10_significands_table {
   static constexpr bool compress = ZMIJ_OPTIMIZE_SIZE != 0;
   static constexpr bool split_tables = !compress && ZMIJ_AARCH64 != 0;
-  static constexpr int num_pow10 = 617;
-  uint64_t data[compress ? 1 : num_pow10 * 2] = {};
+  static constexpr int num_pow10s = 617;
+  uint64_t data[compress ? 1 : num_pow10s * 2] = {};
 
   // Computes the 128-bit significand of 10**i using method by Dougall Johnson.
   static constexpr auto compute(unsigned i) noexcept -> uint128 {
-    uint64_t m = pow10s[(i + 11) % 28];
-    uint128 h = high_parts[(i + 11) / 28];
+    constexpr int stride = sizeof(pow10_minor) / sizeof(*pow10_minor);
+    auto m = pow10_minor[(i + 11) % stride];
+    auto h = pow10_major[(i + 11) / stride];
 
     uint64_t h1 = umul128_hi64(h.lo, m);
 
@@ -430,16 +413,16 @@ struct pow10_significands_table {
     uint128 result = (c2 >> 63) != 0
                          ? uint128{c2, c1}
                          : uint128{c2 << 1 | c1 >> 63, c1 << 1 | c0 >> 63};
-    result.lo -= (fixups[i >> 5] >> (i & 31)) & 1;
+    result.lo -= (pow10_fixups[i >> 5] >> (i & 31)) & 1;
     return result;
   }
 
   constexpr pow10_significands_table() {
-    for (int i = 0; i < num_pow10 && !compress; ++i) {
+    for (int i = 0; i < num_pow10s && !compress; ++i) {
       uint128 result = compute(i);
       if (split_tables) {
-        data[num_pow10 - i - 1] = result.hi;
-        data[num_pow10 * 2 - i - 1] = result.lo;
+        data[num_pow10s - i - 1] = result.hi;
+        data[num_pow10s * 2 - i - 1] = result.lo;
       } else {
         data[i * 2] = result.hi;
         data[i * 2 + 1] = result.lo;
@@ -455,8 +438,8 @@ struct pow10_significands_table {
       return {data[index], data[index + 1]};
     }
 
-    const uint64_t* hi = data + num_pow10 + dec_exp_min - 1;
-    const uint64_t* lo = hi + num_pow10;
+    const uint64_t* hi = data + num_pow10s + dec_exp_min - 1;
+    const uint64_t* lo = hi + num_pow10s;
 
     // Force indexed loads.
     if (!is_constant_evaluated()) ZMIJ_ASM(volatile("" : "+r"(hi), "+r"(lo)));
@@ -473,8 +456,7 @@ constexpr auto compute_dec_exp(int bin_exp, bool regular = true) noexcept
   // log10_3_over_4_sig = -log10(3/4) * 2**log10_2_exp rounded to a power of 2
   constexpr int log10_3_over_4_sig = 131'072;
   // log10_2_sig = round(log10(2) * 2**log10_2_exp)
-  constexpr int log10_2_sig = 315'653;
-  constexpr int log10_2_exp = 20;
+  constexpr int log10_2_sig = 315'653, log10_2_exp = 20;
   return (bin_exp * log10_2_sig - !regular * log10_3_over_4_sig) >> log10_2_exp;
 }
 
@@ -504,6 +486,29 @@ struct exp_shift_table {
   }
 };
 constexpr exp_shift_table exp_shifts;
+
+// An optional table of precomputed exponent strings for scientific notation.
+// Each entry packs "e+dd" or "e+ddd" into a uint64_t with the length in byte 7.
+struct exp_string_table {
+  static constexpr bool enable = ZMIJ_USE_EXP_STRING_TABLE;
+  using traits = float_traits<double>;
+  static constexpr int min_dec_exp =
+      traits::min_exponent10 - traits::max_digits10;
+  static constexpr int offset = -min_dec_exp;
+  uint64_t data[enable ? traits::max_exponent10 - min_dec_exp + 1 : 1] = {};
+
+  constexpr exp_string_table() {
+    for (int e = min_dec_exp; e <= traits::max_exponent10 && enable; ++e) {
+      uint64_t abs_e = e >= 0 ? e : -e;
+      uint64_t bc = abs_e % 100;
+      uint64_t val = ((bc % 10 + '0') << 8) | (bc / 10 + '0');
+      if (uint64_t a = abs_e / 100) val = (val << 8) | (a + '0');
+      data[e + offset] = (uint64_t(abs_e >= 100 ? 5 : 4) << 48) | (val << 16) |
+                         (uint64_t(e >= 0 ? '+' : '-') << 8) | 'e';
+    }
+  }
+};
+constexpr exp_string_table exp_strings;
 
 // Computes a shift so that, after scaling by a power of 10, the intermediate
 // result always has a fixed 128-bit fractional part (for double).
@@ -536,7 +541,7 @@ inline auto count_trailing_nonzeros(uint64_t x) noexcept -> int {
   // high bit is unused we can avoid the zero check by shifting the
   // datum left by one and inserting a sentinel bit at the end. This can
   // be faster than the automatically inserted range check.
-  if (is_big_endian()) x = bswap64(x);
+  if (is_big_endian) x = bswap64(x);
   return (size_t(70) - clz((x << 1) | 1)) / 8;  // size_t for native arithmetic
 }
 
@@ -618,7 +623,7 @@ auto to_bcd8(uint64_t abcdefgh) noexcept -> uint64_t {
   uint64_t a_b_c_d_e_f_g_h =
       ab_cd_ef_gh +
       neg10 * (((ab_cd_ef_gh * div10_sig) >> div10_exp) & 0xf000f000f000f);
-  return is_big_endian() ? a_b_c_d_e_f_g_h : bswap64(a_b_c_d_e_f_g_h);
+  return is_big_endian ? a_b_c_d_e_f_g_h : bswap64(a_b_c_d_e_f_g_h);
 }
 
 inline auto write_if(char* buffer, uint32_t digit, bool condition) noexcept
@@ -831,40 +836,33 @@ ZMIJ_INLINE auto to_decimal_schubfach(UInt bin_sig, int64_t bin_exp,
   unsigned char exp_shift = compute_exp_shift<num_bits>(bin_exp, dec_exp);
   uint128 pow10 = pow10_significands[-dec_exp];
 
-  // Fallback to Schubfach to guarantee correctness in boundary cases.
-  // This requires switching to strict overestimates of powers of 10.
+  // Shubfach requires strict overestimates of powers of 10.
   ++(num_bits == 64 ? pow10.lo : pow10.hi);
 
   // Shift the significand so that boundaries are integer.
-  constexpr int bound_shift = 2;
-  UInt bin_sig_shifted = bin_sig << bound_shift;
+  // The two extra bits act as guard and sticky for correct rounding.
+  UInt bin_sig_shifted = bin_sig << 2;
+  UInt odd = bin_sig & 1;
 
-  // Compute the estimates of lower and upper bounds of the rounding interval
-  // by multiplying them by the power of 10 and applying modified rounding.
-  UInt lsb = bin_sig & 1;
+  // Compute the lower and upper bounds of the rounding interval by
+  // multiplying them by the power of 10 and applying modified rounding.
   UInt lower = (bin_sig_shifted - (regular + 1)) << exp_shift;
-  lower = umulhi_inexact_to_odd(pow10.hi, pow10.lo, lower) + lsb;
+  lower = umulhi_inexact_to_odd(pow10.hi, pow10.lo, lower) + odd;
+  lower = (lower + 3) >> 2;  // ceil
   UInt upper = (bin_sig_shifted + 2) << exp_shift;
-  upper = umulhi_inexact_to_odd(pow10.hi, pow10.lo, upper) - lsb;
+  upper = umulhi_inexact_to_odd(pow10.hi, pow10.lo, upper) - odd;
+  upper = upper >> 2;  // floor
 
   // The idea of using a single shorter candidate is by Cassio Neri.
   // It is less or equal to the upper bound by construction.
-  UInt shorter = ((upper >> bound_shift) / 10) * 10;
-  if ((shorter << bound_shift) >= lower) return {int64_t(shorter), dec_exp};
+  UInt shorter = (upper / 10) * 10;
+  if (shorter >= lower) return {int64_t(shorter), dec_exp};
 
-  UInt scaled_sig =
+  // The simplified longer candidate selection is by Russ Cox.
+  UInt dec_sig =
       umulhi_inexact_to_odd(pow10.hi, pow10.lo, bin_sig_shifted << exp_shift);
-  UInt longer_below = scaled_sig >> bound_shift;
-  UInt longer_above = longer_below + 1;
-
-  // Pick the closest of dec_sig_below and dec_sig_above and check if it's in
-  // the rounding interval.
-  using sint = std::make_signed_t<UInt>;
-  sint cmp = sint(scaled_sig - ((longer_below + longer_above) << 1));
-  bool below_closer = cmp < 0 || (cmp == 0 && (longer_below & 1) == 0);
-  bool below_in = (longer_below << bound_shift) >= lower;
-  UInt dec_sig = (below_closer & below_in) ? longer_below : longer_above;
-  return {int64_t(dec_sig), dec_exp};
+  dec_sig = (dec_sig + 1 + ((dec_sig >> 2) & 1)) >> 2;  // round
+  return {int64_t(lower == upper ? lower : dec_sig), dec_exp};
 }
 
 // Here be 🐉s.
@@ -878,8 +876,11 @@ ZMIJ_INLINE auto to_decimal_fast(UInt bin_sig, int64_t raw_exp,
   constexpr int num_bits = std::numeric_limits<UInt>::digits;
   // An optimization from yy by Yaoyuan Guo:
   while (regular) [[ZMIJ_LIKELY]] {
-    int dec_exp = use_umul128_hi64 ? umul128_hi64(bin_exp, 0x4d10500000000000)
-                                   : compute_dec_exp(bin_exp);
+    constexpr uint64_t log10_2_sig = 78'913;
+    constexpr int log10_2_exp = 18;
+    int dec_exp = use_umul128_hi64
+                      ? umul128_hi64(bin_exp, log10_2_sig << (64 - log10_2_exp))
+                      : compute_dec_exp(bin_exp);
     unsigned char exp_shift =
         compute_exp_shift<num_bits, true>(bin_exp, dec_exp);
     uint128 pow10 = pow10_significands[-dec_exp];
@@ -947,24 +948,24 @@ ZMIJ_INLINE auto to_decimal_fast(UInt bin_sig, int64_t raw_exp,
     // s - shorter underestimate, S - shorter overestimate
     // l - longer underestimate,  L - longer overestimate
 
-    // Check for boundary case when rounding down to nearest 10 and
-    // near-boundary case when rounding up to nearest 10.
+    // Check for near-boundary case when rounding up to nearest 10;
+    // equivalent to upper == ten || upper == ten - 1.
     // Case where upper == ten is insufficient: 1.342178e+08f.
-    if (ten - upper <= 1u ||  // upper == ten || upper == ten - 1
-        scaled_sig_mod10 == scaled_half_ulp) [[ZMIJ_UNLIKELY]] {
+    if (ten - upper <= 1u) [[ZMIJ_UNLIKELY]]
       break;
-    }
 
+    uint64_t even = 1 - (bin_sig & 1);
     int64_t shorter = int64_t(integral - digit);
     int64_t longer = int64_t(integral + (cmp >= 0));
-    int64_t dec_sig =
-        select_if_less(scaled_sig_mod10, scaled_half_ulp, shorter, longer);
+    int64_t dec_sig = select_if_less(scaled_sig_mod10, scaled_half_ulp + even,
+                                     shorter, longer);
     return {select_if_less(ten, upper, shorter + 10, dec_sig), dec_exp};
   }
+  // Fallback to Schubfach to guarantee correctness in boundary cases.
   return to_decimal_schubfach(bin_sig, bin_exp, regular);
 }
 
-#if ZMIJ_USE_SSE4_1
+#if ZMIJ_USE_SSE4_1 && !ZMIJ_OPTIMIZE_SIZE
 static_assert(compute_dec_exp(float_traits<double>::digits + 1) == 16);
 
 #  define ZMIJ_PACK16(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)  \
@@ -972,46 +973,28 @@ static_assert(compute_dec_exp(float_traits<double>::digits + 1) == 16);
       sse_constants::pack8((a), (b), (c), (d), (e), (f), (g), (h)),    \
           sse_constants::pack8((i), (j), (k), (l), (m), (n), (o), (p)) \
     }
-constexpr uint128 double_sse4_shuffle_table[32] = {
-    // extra_digit == false
-    ZMIJ_PACK16(15, 14, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1),
+constexpr uint128 double_sse4_shuffle_table[17] = {
+    ZMIJ_PACK16(0x80, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 0x80, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 0x80, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 0x80, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 0x80, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 0x80, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 0x80, 9, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 0x80, 8, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 0x80, 7, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 0x80, 6, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 0x80, 5, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 0x80, 4, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 0x80, 3, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 0x80, 2, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 0x80, 1),
+    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0x80),
     ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0),
-    // extra_digit == true
-    ZMIJ_PACK16(15, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 9, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 7, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 6, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 5, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 4, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 3, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 2, 1),
-    ZMIJ_PACK16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1)};
+};
 
 auto write_fixed_double_sse4(char* buffer, uint64_t dec_sig, int dec_exp,
                              bool extra_digit) noexcept -> char* {
-  char* start = buffer;
-
   uint32_t abbccddee = uint32_t(dec_sig / 100'000'000);
   uint32_t ffgghhii = uint32_t(dec_sig % 100'000'000);
   uint32_t a = abbccddee / 100'000'000;
@@ -1021,14 +1004,13 @@ auto write_fixed_double_sse4(char* buffer, uint64_t dec_sig, int dec_exp,
 
   const auto* c = &sse_consts;
   ZMIJ_ASM(("" : "+r"(c)));  // Load constants from memory.
-  const __m128i bswap = _mm_load_si128((const __m128i*)(&c->bswap));
   const __m128i zeros = _mm_load_si128((const __m128i*)(&c->zeros));
 
   auto unshuffled_bcd = get_double_significand_bcd_unshuffled_sse(
       dec_sig, extra_digit, bbccddee, ffgghhii, c);
   auto unshuffled_digits = _mm_or_si128(unshuffled_bcd, zeros);
   const __m128i shuffler = _mm_load_si128(
-      (const __m128i*)&double_sse4_shuffle_table[dec_exp | (extra_digit << 4)]);
+      (const __m128i*)&double_sse4_shuffle_table[dec_exp + !extra_digit]);
   auto digits = _mm_shuffle_epi8(unshuffled_digits,
                                  shuffler);  // SSSE3 for _mm_shuffle_epi8
 
@@ -1042,12 +1024,12 @@ auto write_fixed_double_sse4(char* buffer, uint64_t dec_sig, int dec_exp,
 #  endif
 
   _mm_storeu_si128(reinterpret_cast<__m128i*>(buffer), digits);
-  // only the byte at buffer + 16 is actually needed
-  write8(buffer + 16, unshuffled_digits[0]);
-  buffer += len;
+  uint32_t trailing_digit = _mm_cvtsi128_si32(unshuffled_digits);
+  memcpy(buffer + 16, &trailing_digit, 4);  // only need the lowest byte
 
-  char* point = start + dec_exp + 1;
+  char* point = buffer + dec_exp + !extra_digit;
   *point = '.';
+  buffer += len;
   return buffer > point ? buffer + 1 : point;
 }
 #endif
@@ -1061,7 +1043,7 @@ auto write_fixed(char* buffer, uint64_t dec_sig, int dec_exp,
                                        extra_digit);
   }
 
-#if ZMIJ_USE_SSE4_1
+#if ZMIJ_USE_SSE4_1 && !ZMIJ_OPTIMIZE_SIZE
   if (num_bits == 64)
     return write_fixed_double_sse4(buffer, dec_sig, dec_exp, extra_digit);
 #endif
@@ -1163,8 +1145,15 @@ ZMIJ_INLINE auto write(Float value, char* buffer) noexcept -> char* {
   buffer -= (buffer - 1 == start + 1);  // Remove trailing point.
 
   // Write exponent.
+  if (exp_string_table::enable) {
+    uint64_t exp_data = exp_strings.data[dec_exp + exp_string_table::offset];
+    int len = int(exp_data >> 48);
+    if (is_big_endian) exp_data = bswap64(exp_data);
+    memcpy(buffer, &exp_data, 5);
+    return buffer + len;
+  }
   uint16_t e_sign = dec_exp >= 0 ? ('+' << 8 | 'e') : ('-' << 8 | 'e');
-  if (is_big_endian()) e_sign = e_sign << 8 | e_sign >> 8;
+  if (is_big_endian) e_sign = e_sign << 8 | e_sign >> 8;
   memcpy(buffer, &e_sign, 2);
   buffer += 2;
   dec_exp = dec_exp >= 0 ? dec_exp : -dec_exp;
