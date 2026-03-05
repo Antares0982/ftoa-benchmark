@@ -36,7 +36,11 @@
         let
           myEnv = mkMyEnv _symlinkName _getPkgs _pkgs;
           myPkgs = _getPkgs _pkgs;
-          shellHook = "${_pkgs.nix}/bin/nix-store --add-root ./${_symlinkName} --realise ${myEnv}";
+          shellHook = ''
+            export CC=clang
+            export CXX=clang++
+            ${_pkgs.nix}/bin/nix-store --add-root ./${_symlinkName} --realise ${myEnv}
+          '';
           rawShell = _pkgs.mkShell {
             buildInputs = myPkgs;
           };

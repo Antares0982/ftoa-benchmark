@@ -118,6 +118,46 @@ python3 build_libs.py --sse41
 
 Each line reports: total calls, total time, **mean ± stddev** ns/call, and a sink value (to prevent dead-code elimination). A 100-round warmup runs before measurement begins.
 
+## Generic Benchmark (`any_dtoa_benchmark`)
+
+Benchmark **any** dtoa shared library — not limited to the built-in zmij/xjb set.
+
+```bash
+./build/any_dtoa_benchmark [--test-input <path>] [--rounds <N>] <lib_spec> [<lib_spec> ...]
+```
+
+Each `<lib_spec>` has the format `path[:sym_double[:sym_float]]`. If symbol names are omitted, they default to `zmijcpp_detail_write_double` / `zmijcpp_detail_write_float`.
+
+```bash
+# Benchmark two libraries with default symbol names
+./build/any_dtoa_benchmark build/libs/libzmij_c.so build/libs/libzmij_cpp.so
+
+# Custom symbols and input file
+./build/any_dtoa_benchmark --test-input my_data.txt build/libs/libxjb.so:xjb64:xjb32
+
+# Custom rounds
+./build/any_dtoa_benchmark --rounds 1000 build/libs/libzmij_rust.so:zmijrust_detail_write_double:zmijrust_detail_write_float
+```
+
+## Verifier
+
+Verify that a dtoa library reproduces the exact text representation of each input line (double only).
+
+```bash
+./build/verifier [--test-input <path>] <lib_spec> [<lib_spec> ...]
+```
+
+Each `<lib_spec>` is `path[:sym_double]`. Exits with code 1 if any mismatches are found.
+
+```bash
+./build/verifier build/libs/libzmij_cpp.so
+./build/verifier --test-input my_data.txt build/libs/libzmij_c.so:zmij_detail_write_double
+```
+
+## Utility Scripts
+
+The `tools/` directory contains helper shell scripts for common build tasks. See the scripts for usage details.
+
 ## Assembly Analysis
 
 After building, assembly files are placed in `build/libs/`.
