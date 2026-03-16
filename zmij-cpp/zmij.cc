@@ -315,6 +315,18 @@ auto umulhi_inexact_to_odd(uint64_t x_hi, uint64_t, uint32_t y) noexcept
   return uint32_t(p >> 32) | ((uint32_t(p) >> 1) != 0);
 }
 
+// Computes the decimal exponent as floor(log10(2**bin_exp)) if regular or
+// floor(log10(3/4 * 2**bin_exp)) otherwise, without branching.
+constexpr auto compute_dec_exp(int bin_exp, bool regular = true) noexcept
+    -> int {
+  assert(bin_exp >= -1334 && bin_exp <= 2620);
+  // log10_3_over_4_sig = -log10(3/4) * 2**log10_2_exp rounded to a power of 2
+  constexpr int log10_3_over_4_sig = 131'072;
+  // log10_2_sig = round(log10(2) * 2**log10_2_exp)
+  constexpr int log10_2_sig = 315'653, log10_2_exp = 20;
+  return (bin_exp * log10_2_sig - !regular * log10_3_over_4_sig) >> log10_2_exp;
+}
+
 template <typename Float> struct float_traits : std::numeric_limits<Float> {
   static_assert(float_traits::is_iec559, "IEEE 754 required");
 
@@ -324,6 +336,9 @@ template <typename Float> struct float_traits : std::numeric_limits<Float> {
   static constexpr int exp_mask = (1 << num_exp_bits) - 1;
   static constexpr int exp_bias = (1 << (num_exp_bits - 1)) - 1;
   static constexpr int exp_offset = exp_bias + num_sig_bits;
+  static constexpr int min_fixed_dec_exp = -4;
+  static constexpr int max_fixed_dec_exp =
+      compute_dec_exp(float_traits::digits + 1) - 1;
 
   using sig_type = std::conditional_t<num_bits == 64, uint64_t, uint32_t>;
   static constexpr sig_type implicit_bit = sig_type(1) << num_sig_bits;
@@ -443,18 +458,6 @@ struct pow10_significand_table {
 };
 alignas(64) constexpr pow10_significand_table pow10_significands;
 
-// Computes the decimal exponent as floor(log10(2**bin_exp)) if regular or
-// floor(log10(3/4 * 2**bin_exp)) otherwise, without branching.
-constexpr auto compute_dec_exp(int bin_exp, bool regular = true) noexcept
-    -> int {
-  assert(bin_exp >= -1334 && bin_exp <= 2620);
-  // log10_3_over_4_sig = -log10(3/4) * 2**log10_2_exp rounded to a power of 2
-  constexpr int log10_3_over_4_sig = 131'072;
-  // log10_2_sig = round(log10(2) * 2**log10_2_exp)
-  constexpr int log10_2_sig = 315'653, log10_2_exp = 20;
-  return (bin_exp * log10_2_sig - !regular * log10_3_over_4_sig) >> log10_2_exp;
-}
-
 constexpr ZMIJ_INLINE auto do_compute_exp_shift(int bin_exp,
                                                 int dec_exp) noexcept
     -> unsigned char {
@@ -498,8 +501,10 @@ struct exp_string_table {
       uint64_t bc = abs_e % 100;
       uint64_t val = ((bc % 10 + '0') << 8) | (bc / 10 + '0');
       if (uint64_t a = abs_e / 100) val = (val << 8) | (a + '0');
-      data[e + offset] = (uint64_t(abs_e >= 100 ? 5 : 4) << 48) | (val << 16) |
-                         (uint64_t(e >= 0 ? '+' : '-') << 8) | 'e';
+      uint64_t len =
+          e >= -4 && e < traits::max_fixed_dec_exp ? 0 : 4 + (abs_e >= 100);
+      data[e + offset] =
+          (len << 48) | (val << 16) | (uint64_t(e >= 0 ? '+' : '-') << 8) | 'e';
     }
   }
 };
@@ -510,10 +515,8 @@ constexpr exp_string_table exp_strings;
 // exponent, indexed by the decimal exponent (dec_exp).
 struct dec_exp_format_table {
   using traits = float_traits<double>;
-  static constexpr int min_dec_exp = -4;
-  static constexpr int max_dec_exp = compute_dec_exp(traits::digits + 1) - 1;
   static constexpr int num_entries =
-      max_dec_exp - min_dec_exp + 2;  // +1 sentinel
+      traits::max_fixed_dec_exp - traits::min_fixed_dec_exp + 2;  // +1 sentinel
 
   struct entry {
     // Byte offset past leading "0.00..." before first significant digit.
@@ -529,14 +532,16 @@ struct dec_exp_format_table {
   entry data[num_entries] = {};
 
   constexpr dec_exp_format_table() {
-    for (int dec_exp = min_dec_exp; dec_exp <= max_dec_exp + 1; ++dec_exp) {
-      auto& e = data[dec_exp - min_dec_exp];
-      bool neg_fixed = dec_exp >= min_dec_exp && dec_exp <= -1;
-      bool pos_fixed = dec_exp >= 0 && dec_exp <= max_dec_exp;
+    for (int dec_exp = traits::min_fixed_dec_exp;
+         dec_exp <= traits::max_fixed_dec_exp + 1; ++dec_exp) {
+      auto& e = data[dec_exp - traits::min_fixed_dec_exp];
+      bool neg_fixed = dec_exp >= traits::min_fixed_dec_exp && dec_exp <= -1;
+      bool pos_fixed = dec_exp >= 0 && dec_exp <= traits::max_fixed_dec_exp;
 
       e.start_pos = neg_fixed ? 1 - dec_exp : 0;
       e.point_pos = pos_fixed ? 1 + dec_exp : 1;
-      e.shift_pos = e.point_pos + (dec_exp >= 0 || dec_exp < min_dec_exp);
+      e.shift_pos =
+          e.point_pos + (dec_exp >= 0 || dec_exp < traits::min_fixed_dec_exp);
 
       for (int s = 1; s <= traits::max_digits10; ++s) {
         if (neg_fixed)
@@ -549,9 +554,12 @@ struct dec_exp_format_table {
     }
   }
 
-  constexpr auto operator[](int dec_exp) const noexcept -> const entry& {
-    unsigned i = unsigned(dec_exp - min_dec_exp);
-    return data[i <= unsigned(max_dec_exp - min_dec_exp) ? i : num_entries - 1];
+  template <typename Traits>
+  constexpr auto get(int dec_exp) const noexcept -> const entry& {
+    constexpr auto min = traits::min_fixed_dec_exp,
+                   max = Traits::max_fixed_dec_exp;
+    unsigned i = unsigned(dec_exp - min);
+    return data[i <= unsigned(max - min) ? i : num_entries - 1];
   }
 };
 constexpr dec_exp_format_table dec_exp_formats;
@@ -733,13 +741,13 @@ template <int num_bits> struct dec_digits {
 // up to 17 decimal digits (16-17 for normals) for double (num_bits == 64) and
 // up to 9 digits (8-9 for normals) for float.
 template <int num_bits>
-ZMIJ_INLINE auto to_digits(char*& buffer, uint64_t value,
+ZMIJ_INLINE auto to_digits(char* buffer, uint64_t value,
                            bool extra_digit) noexcept -> dec_digits<num_bits> {
 #if !ZMIJ_USE_SIMD
   // Digits/pairs of digits are denoted by letters: value = abbccddeeffgghhii.
   uint32_t abbccddee = uint32_t(value / 100'000'000);
   uint32_t ffgghhii = uint32_t(value % 100'000'000);
-  buffer = write_if(buffer, abbccddee / 100'000'000, extra_digit);
+  write_if(buffer, abbccddee / 100'000'000, extra_digit);
   uint64_t hi = to_bcd8(abbccddee % 100'000'000);
   if (ffgghhii == 0) return {{hi + zeros, zeros}, count_trailing_nonzeros(hi)};
   uint64_t lo = to_bcd8(ffgghhii);
@@ -775,7 +783,7 @@ ZMIJ_INLINE auto to_digits(char*& buffer, uint64_t value,
   uint64_t a = uint64_t(umul128(abbccddee, c->mul_const) >> 90);
   uint64_t bbccddee = abbccddee - a * hundred_million;
 
-  buffer = write_if(buffer, a, extra_digit);
+  write_if(buffer, a, extra_digit);
 
   uint64x1_t ffgghhii_bbccddee_64 = {(uint64_t(ffgghhii) << 32) | bbccddee};
   int32x2_t bbccddee_ffgghhii = vreinterpret_s32_u64(ffgghhii_bbccddee_64);
@@ -815,7 +823,7 @@ ZMIJ_INLINE auto to_digits(char*& buffer, uint64_t value,
   uint32_t a = abbccddee / 100'000'000;
   uint32_t bbccddee = abbccddee % 100'000'000;
 
-  buffer = write_if(buffer, a, extra_digit);
+  write_if(buffer, a, extra_digit);
 
   const auto* c = &sse_consts;
   ZMIJ_ASM(("" : "+r"(c)));  // Load constants from memory.
@@ -834,28 +842,20 @@ ZMIJ_INLINE auto to_digits(char*& buffer, uint64_t value,
   __m128i mask128 = _mm_cmpgt_epi8(bcd, _mm_setzero_si128());
   uint64_t mask = _mm_movemask_epi8(mask128);
 #  if defined(__LZCNT__) && !defined(ZMIJ_NO_BUILTINS)
-  auto len = 32 - _lzcnt_u32(mask);
+  int len = 32 - _lzcnt_u32(mask);
 #  else
-  auto len = 63 - clz((mask << 1) | 1);
+  int len = 63 - clz((mask << 1) | 1);
 #  endif
   return {_mm_or_si128(bcd, zeros), len};
 #endif  // ZMIJ_USE_SSE
 }
 
 template <>
-ZMIJ_INLINE auto to_digits<32>(char*& buffer, uint64_t value,
+ZMIJ_INLINE auto to_digits<32>(char* buffer, uint64_t value,
                                bool extra_digit) noexcept -> dec_digits<32> {
-  buffer = write_if(buffer, value / 100'000'000, extra_digit);
+  write_if(buffer, value / 100'000'000, extra_digit);
   uint64_t bcd = to_bcd8(value % 100'000'000);
   return {bcd + zeros, count_trailing_nonzeros(bcd)};
-}
-
-template <int num_bits>
-ZMIJ_INLINE auto write_significand(char* buffer, uint64_t value,
-                                   bool extra_digit) noexcept -> char* {
-  auto s = to_digits<num_bits>(buffer, value, extra_digit);
-  memcpy(buffer, &s.digits, sizeof(s.digits));
-  return buffer + s.num_digits;
 }
 
 #if ZMIJ_USE_SSE4_1 && !ZMIJ_OPTIMIZE_SIZE
@@ -1131,37 +1131,33 @@ ZMIJ_INLINE auto write(Float value, char* buffer) noexcept -> char* {
     --dec_exp;
   }
 
-  if (dec_exp >= -4 && dec_exp < compute_dec_exp(traits::digits + 1)) {
+  char* start = buffer;
+  if (dec_exp >= traits::min_fixed_dec_exp &&
+      dec_exp <= traits::max_fixed_dec_exp) {
 #if ZMIJ_USE_SSE4_1 && !ZMIJ_OPTIMIZE_SIZE
     if (traits::num_bits == 64 && dec_exp >= 0)
       return write_fixed_double_sse4(buffer, dec.sig, dec_exp, extra_digit);
 #endif
-
-    const auto& fmt = dec_exp_formats[dec_exp];
-    auto start = buffer, sig_start = buffer + fmt.start_pos;
-
-    memcpy(buffer, "0.000000", 8);  // For dec_exp < 0.
-    buffer =
-        write_significand<traits::num_bits>(sig_start, dec.sig, extra_digit);
-    memmove(start + fmt.shift_pos, start + fmt.point_pos,
-            traits::num_bits == 64 ? 16 : 8);
+    memcpy(buffer, &zeros, 8);  // For dec_exp < 0.
+    const auto& fmt = dec_exp_formats.get<traits>(dec_exp);
+    char* sig_start = buffer + fmt.start_pos;
+    auto dig = to_digits<traits::num_bits>(sig_start, dec.sig, extra_digit);
+    memcpy(sig_start + extra_digit, &dig.digits, sizeof(dig.digits));
+    memmove(start + fmt.shift_pos, start + fmt.point_pos, sizeof(dig.digits));
     start[fmt.point_pos] = '.';
-    return sig_start + fmt.exp_pos[buffer - sig_start - 1];
+    return sig_start + fmt.exp_pos[dig.num_digits + extra_digit - 1];
   }
 
-  // Write significand.
-  char* start = buffer;
-  ++buffer;
-  auto dig = to_digits<traits::num_bits>(buffer, dec.sig, extra_digit);
+  auto dig = to_digits<traits::num_bits>(buffer + 1, dec.sig, extra_digit);
+  buffer += extra_digit + 1;
   memcpy(buffer, &dig.digits, sizeof(dig.digits));
   buffer += dig.num_digits;
-
   start[0] = start[1];
   start[1] = '.';
   buffer -= (buffer - 1 == start + 1);  // Remove trailing point.
 
   // Write exponent.
-  if (exp_string_table::enable) {
+  if (exp_string_table::enable && traits::num_bits == 64) {
     uint64_t exp_data = exp_strings.data[dec_exp + exp_string_table::offset];
     int len = int(exp_data >> 48);
     if (is_big_endian) exp_data = bswap64(exp_data);
