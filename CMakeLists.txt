@@ -37,7 +37,7 @@ add_custom_command(
   VERBATIM)
 
 add_custom_target(
-  zmij_libs ALL
+  ftoa_libs ALL
   DEPENDS "${LIB_OUTPUT_DIR}/libzmij_c.so" "${LIB_OUTPUT_DIR}/libzmij_cpp.so"
           "${LIB_OUTPUT_DIR}/libzmij_rust.so" "${LIB_OUTPUT_DIR}/libxjb.so")
 
@@ -48,7 +48,7 @@ add_custom_target(
 add_executable(zmij_benchmark src/benchmark.c)
 target_link_libraries(zmij_benchmark PRIVATE dl m)
 target_compile_options(zmij_benchmark PRIVATE -O2 -Wall -Wextra)
-add_dependencies(zmij_benchmark zmij_libs)
+add_dependencies(zmij_benchmark ftoa_libs)
 
 # Make the lib output dir available as a compile definition so the benchmark can
 # locate .so files at runtime by default.
