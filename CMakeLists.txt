@@ -59,9 +59,9 @@ target_compile_definitions(zmij_benchmark
 # Generic dtoa benchmark (any library)
 # --------------------------------------------------------------------------- #
 
-add_executable(any_dtoa_benchmark src/any_dtoa_benchmark.c)
-target_link_libraries(any_dtoa_benchmark PRIVATE dl m)
-target_compile_options(any_dtoa_benchmark PRIVATE -O2 -Wall -Wextra)
+add_executable(any_ftoa_benchmark src/any_ftoa_benchmark.c)
+target_link_libraries(any_ftoa_benchmark PRIVATE dl m)
+target_compile_options(any_ftoa_benchmark PRIVATE -O2 -Wall -Wextra)
 
 # --------------------------------------------------------------------------- #
 # Dtoa verifier

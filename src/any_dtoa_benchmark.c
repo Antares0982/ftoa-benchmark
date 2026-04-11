@@ -1,11 +1,11 @@
 /*
- * any_dtoa_benchmark — generic dtoa benchmark runner
+ * any_ftoa_benchmark — generic dtoa benchmark runner
  *
  * Loads arbitrary shared libraries via dlopen and benchmarks their
  * float/double conversion performance.
  *
  * Usage:
- *   any_dtoa_benchmark [--test-input <path>] [--rounds <N>] <lib_spec> ...
+ *   any_ftoa_benchmark [--test-input <path>] [--rounds <N>] <lib_spec> ...
  *
  * Each <lib_spec> has the format:
  *   path

@@ -1,7 +1,7 @@
 /*
  * zmij-playground.h — shared types, utilities, and benchmark helpers
  *
- * Included by benchmark.c, any_dtoa_benchmark.c, and verifier.c.
+ * Included by benchmark.c, any_ftoa_benchmark.c, and verifier.c.
  * All functions are static inline to avoid unused-function warnings
  * in translation units that don't call every helper.
  */

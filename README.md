@@ -1,8 +1,8 @@
-# zmij-playground
+# ftoa-benchmark
 
-A benchmark playground for comparing **three language implementations** (C, C++, Rust) of the [zmij](https://github.com/vitaut/zmij) dtoa (double-to-ASCII) algorithm.
+A benchmark framework for comparing float-to-string implementations. Any library that conforms to the uniform C ABI can be plugged in and benchmarked.
 
-Each implementation is compiled as a shared library (`.so`), loaded at runtime via `dlopen`, and benchmarked through a unified C ABI interface.
+Each implementation is compiled as a shared library (`.so`), loaded at runtime via `dlopen`, and benchmarked through a unified interface.
 
 ## Prerequisites
 
@@ -15,96 +15,47 @@ Each implementation is compiled as a shared library (`.so`), loaded at runtime v
 # Enter development shell (provides clang, cargo, cmake, python3)
 nix develop
 
-# Build everything (libraries + benchmark executable)
+# Build everything (libraries + benchmark executables)
 cmake -B build
 cmake --build build
 
-# Run benchmark
-./build/zmij_benchmark test_input.txt
+# Compile additional libraries to compare (optional)
+./tools/compile_cpp.sh ./zmij-cpp-old/zmij.cc zmij-7afa3c
+./tools/compile_cpp.sh ./zmij-cpp-old2/zmij.cc zmij-4baf80
+./tools/compile_cpp.sh ./zmij-cpp-pr/zmij.cc zmij-pr120
+
+# Run benchmark against all libraries
+./build/any_ftoa_benchmark \
+    ./build/libs/libxjb.so:xjb64:xjb32 \
+    ./build/libs/libzmij_cpp.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
+    ./build/libs/libzmij-pr120.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
+    ./build/libs/libzmij-7afa3c.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
+    ./build/libs/libzmij-4baf80.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
+    ./build/libs/libzmij_c.so:zmij_detail_write_double:zmij_detail_write_float \
+    ./build/libs/libzmij_rust.so:zmijrust_detail_write_double:zmijrust_detail_write_float
 ```
 
-## Preparing Test Input
+See [`compare-all.sh`](compare-all.sh) for a full example that builds and benchmarks all included libraries.
 
-The benchmark reads one floating-point number per line from a text file `test_input.txt`. You can also create a test file manually:
-
-```
--62.136664999999937
-65.851379000000009
-3.14159
-1.0e-10
-```
-
-## Building
-
-### Note
-
-If you want to replace current code with another file, please note these things for force inlining (without an additional `jmp`/`call` instruction):
-1. For zmij C++ impl, 
-```C++
-// template auto write(float value, char* buffer) noexcept -> char*;
-// template auto write(double value, char* buffer) noexcept -> char*;
-```
-these two lines should be commented out, and `ZMIJ_INLINE` should be added to the function `write`.
-2. For xjb, you need to add `static inline` to xjb64 and xjb32 functions.
-2. For Rust impl it is suggested to add a `#[inline]` before `write_to_zmij_buffer`.
-
-
-### Full CMake Build
+## Running the Benchmark
 
 ```bash
-cmake -B build
-cmake --build build
+./build/any_ftoa_benchmark [--test-input <path>] [--rounds <N>] <lib_spec> [<lib_spec> ...]
 ```
 
-This will:
-1. Invoke `build_libs.py` to compile three shared libraries (`libzmij_c.so`, `libzmij_cpp.so`, `libzmij_rust.so`)
-2. Generate assembly files (`zmij_c.s`, `zmij_cpp.s`, `zmij_rust.s`) for inspection
-3. Build the `zmij_benchmark` executable
+Each `<lib_spec>` has the format `path[:sym_double[:sym_float]]`. If symbol names are omitted, they default to `zmijcpp_detail_write_double` / `zmijcpp_detail_write_float`.
 
-### Libraries Only
+### Examples
 
 ```bash
-python3 build_libs.py [--output-dir <dir>] [--sse41] [--cc clang]
-```
+# Benchmark two libraries with default symbol names
+./build/any_ftoa_benchmark build/libs/libzmij_c.so build/libs/libzmij_cpp.so
 
-### SSE4.1 Mode
-
-Enable SSE4.1 instructions for all three implementations:
-
-```bash
-# Via CMake
-cmake -B build -DCMAKE_C_COMPILER=clang -DSSE41=ON
-cmake --build build
-
-# Or directly
-python3 build_libs.py --sse41
-```
-
-## Running Benchmarks
-
-```bash
-./build/zmij_benchmark [OPTIONS] <input.txt>
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--lib-dir <path>` | `build/libs/` | Directory containing `.so` files |
-| `--rounds <N>` | `5000` | Number of benchmark rounds |
-| `-h, --help` | | Show usage |
-
-### Example
-
-```bash
-# Default: 5000 rounds
-./build/zmij_benchmark test_input.txt
+# Custom symbols and input file
+./build/any_ftoa_benchmark --test-input my_data.txt build/libs/libxjb.so:xjb64:xjb32
 
 # Custom rounds
-./build/zmij_benchmark --rounds 500 test_input.txt
-
-# Use libraries from a different directory
-./build/zmij_benchmark --lib-dir /path/to/libs test_input.txt
+./build/any_ftoa_benchmark --rounds 1000 build/libs/libzmij_rust.so:zmijrust_detail_write_double:zmijrust_detail_write_float
 ```
 
 ### Output Format
@@ -118,30 +69,83 @@ python3 build_libs.py --sse41
 
 Each line reports: total calls, total time, **mean ± stddev** ns/call, and a sink value (to prevent dead-code elimination). A 100-round warmup runs before measurement begins.
 
-## Generic Benchmark (`any_dtoa_benchmark`)
+## Preparing Test Input
 
-Benchmark **any** dtoa shared library — not limited to the built-in zmij/xjb set.
+The benchmark reads one floating-point number per line from a text file. Example:
 
-```bash
-./build/any_dtoa_benchmark [--test-input <path>] [--rounds <N>] <lib_spec> [<lib_spec> ...]
+```
+-62.136664999999937
+65.851379000000009
+3.14159
+1.0e-10
 ```
 
-Each `<lib_spec>` has the format `path[:sym_double[:sym_float]]`. If symbol names are omitted, they default to `zmijcpp_detail_write_double` / `zmijcpp_detail_write_float`.
+## Uniform C ABI
+
+Any library can be benchmarked as long as it exports symbols with this signature:
+
+```c
+char *<sym_double>(double value, char *buffer);
+char *<sym_float>(float value, char *buffer);
+```
+
+- `buffer` must be at least 16 bytes (float) or 25 bytes (double)
+- Returns a pointer past the last written byte
+- Libraries are loaded with `RTLD_LOCAL`, so identical symbol names across libraries don't conflict
+
+## Adding Your Own Library
+
+1. Compile your implementation as a shared library (`.so`)
+2. Export functions matching the C ABI above
+3. Pass the library path and symbol names as a `<lib_spec>` to `any_ftoa_benchmark`
+
+See `tools/compile_cpp.sh` for an example of how to compile a C++ source file into a conforming shared library.
+
+### Note on Inlining
+
+For best results (no extra `jmp`/`call` overhead in the exported wrapper):
+
+- **C++ (zmij-style)**: comment out explicit template instantiations and add `ZMIJ_INLINE` to the `write` function
+- **xjb**: add `static inline` to `xjb64` and `xjb32`
+- **Rust**: add `#[inline]` before `write_to_zmij_buffer`
+
+## Building
+
+### Full CMake Build
 
 ```bash
-# Benchmark two libraries with default symbol names
-./build/any_dtoa_benchmark build/libs/libzmij_c.so build/libs/libzmij_cpp.so
+cmake -B build
+cmake --build build
+```
 
-# Custom symbols and input file
-./build/any_dtoa_benchmark --test-input my_data.txt build/libs/libxjb.so:xjb64:xjb32
+This will:
+1. Invoke `build_libs.py` to compile the built-in shared libraries
+2. Generate assembly files in `build/libs/` for inspection
+3. Build the `any_ftoa_benchmark` and `verifier` executables
 
-# Custom rounds
-./build/any_dtoa_benchmark --rounds 1000 build/libs/libzmij_rust.so:zmijrust_detail_write_double:zmijrust_detail_write_float
+### Compile Additional Libraries
+
+```bash
+./tools/compile_cpp.sh <source.cc> <output-name>
+```
+
+### Libraries Only
+
+```bash
+python3 build_libs.py [--output-dir <dir>] [--sse41] [--cc clang]
+```
+
+### SSE4.1 / AVX2 Mode
+
+```bash
+# SSE4.1 via CMake
+cmake -B build -DCMAKE_C_COMPILER=clang -DSSE41=ON
+cmake --build build
 ```
 
 ## Verifier
 
-Verify that a dtoa library reproduces the exact text representation of each input line (double only).
+Verify that a dtoa library reproduces the exact text representation of each input value (double only):
 
 ```bash
 ./build/verifier [--test-input <path>] <lib_spec> [<lib_spec> ...]
@@ -154,32 +158,11 @@ Each `<lib_spec>` is `path[:sym_double]`. Exits with code 1 if any mismatches ar
 ./build/verifier --test-input my_data.txt build/libs/libzmij_c.so:zmij_detail_write_double
 ```
 
-## Utility Scripts
-
-The `tools/` directory contains helper shell scripts for common build tasks. See the scripts for usage details.
-
-## Assembly Analysis
-
-After building, assembly files are placed in `build/libs/`.
-
-## Uniform C ABI
-
-All three libraries export the same two symbols:
-
-```c
-char *zmij_detail_write_float(float value, char *buffer);
-char *zmij_detail_write_double(double value, char *buffer);
-```
-
-- `buffer` must be at least 16 bytes (float) or 25 bytes (double)
-- Returns a pointer past the last written byte
-- Libraries are loaded with `RTLD_LOCAL`, so identical symbol names don't conflict
-
 ## Design Notes
 
-- **Same translation unit**: FFI exports are appended directly to the original source files (`zmij.cc` and `lib.rs`), not in separate wrapper files. This ensures the compiler naturally inlines the algorithm without requiring LTO.
-- Default using clang as compiler since clang generates faster code.
+- **Same translation unit**: FFI exports are appended directly to the original source files, not in separate wrapper files. This ensures the compiler naturally inlines the algorithm without requiring LTO.
+- Default compiler is clang, which tends to generate faster code than gcc for these workloads.
 
 ## License
 
-See [LICENSE](LICENSE). zmij licenses are placed in each source directory.
+See [LICENSE](LICENSE). Third-party library licenses are placed in each source directory.
