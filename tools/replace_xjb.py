@@ -16,17 +16,21 @@ args = parser.parse_args()
 with open(args.file, "r") as f:
     content = f.read()
 
-# 1. Replace "// static inline\n<ws>char *xjb64(" with "static inline\n<ws>char *xjb64("
-old1 = "// static inline\n\tchar *xjb64("
-assert old1 in content, "Could not find commented-out static inline before xjb64"
-content = content.replace(old1, "static inline\n\tchar *xjb64(", 1)
+assert "static inline char* xjb64(" in content, "Could not find static inline xjb64"
+assert "static inline char* xjb32(" in content, "Could not find static inline xjb32"
 
-# 2. Replace "// static inline\n<ws>char *xjb32(" with "static inline\n<ws>char *xjb32("
-old2 = "// static inline\n\tchar *xjb32("
-assert old2 in content, "Could not find commented-out static inline before xjb32"
-content = content.replace(old2, "static inline\n\tchar *xjb32(", 1)
+# Comment out the existing xjb_ftoa export functions
+old_exports = """char* xjb_ftoa(float v, char* buf) {
+    return xjb::xjb32(v, buf);
+}
+char* xjb_ftoa(double v, char* buf) {
+    return xjb::xjb64(v, buf);
+}"""
+assert old_exports in content, "Could not find xjb_ftoa export functions"
+commented = "\n".join("// " + line for line in old_exports.splitlines())
+content = content.replace(old_exports, commented, 1)
 
-# 3. Append FFI exports after the end of namespace xjb
+# Append FFI exports after the end of namespace xjb
 content += """
 
 // ---- Begin playground FFI exports ----
