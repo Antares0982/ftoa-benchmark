@@ -193,7 +193,7 @@ impl FloatTraits for f64 {
 }
 
 #[rustfmt::skip]
-const POW10S: [u64; 28] = [
+const POW10_MINOR: [u64; 28] = [
     0x8000000000000000, 0xa000000000000000, 0xc800000000000000,
     0xfa00000000000000, 0x9c40000000000000, 0xc350000000000000,
     0xf424000000000000, 0x9896800000000000, 0xbebc200000000000,
@@ -207,39 +207,38 @@ const POW10S: [u64; 28] = [
 ];
 
 #[rustfmt::skip]
-const HIGH_PARTS: [uint128; 23] = [
-    uint128 { hi: 0xaf8e5410288e1b6f, lo: 0x07ecf0ae5ee44dda },
-    uint128 { hi: 0xb1442798f49ffb4a, lo: 0x99cd11cfdf41779d },
-    uint128 { hi: 0xb2fe3f0b8599ef07, lo: 0x861fa7e6dcb4aa15 },
-    uint128 { hi: 0xb4bca50b065abe63, lo: 0x0fed077a756b53aa },
-    uint128 { hi: 0xb67f6455292cbf08, lo: 0x1a3bc84c17b1d543 },
-    uint128 { hi: 0xb84687c269ef3bfb, lo: 0x3d5d514f40eea742 },
-    uint128 { hi: 0xba121a4650e4ddeb, lo: 0x92f34d62616ce413 },
-    uint128 { hi: 0xbbe226efb628afea, lo: 0x890489f70a55368c },
-    uint128 { hi: 0xbdb6b8e905cb600f, lo: 0x5400e987bbc1c921 },
-    uint128 { hi: 0xbf8fdb78849a5f96, lo: 0xde98520472bdd034 },
-    uint128 { hi: 0xc16d9a0095928a27, lo: 0x75b7053c0f178294 },
-    uint128 { hi: 0xc350000000000000, lo: 0x0000000000000000 },
-    uint128 { hi: 0xc5371912364ce305, lo: 0x6c28000000000000 },
-    uint128 { hi: 0xc722f0ef9d80aad6, lo: 0x424d3ad2b7b97ef6 },
-    uint128 { hi: 0xc913936dd571c84c, lo: 0x03bc3a19cd1e38ea },
-    uint128 { hi: 0xcb090c8001ab551c, lo: 0x5cadf5bfd3072cc6 },
-    uint128 { hi: 0xcd036837130890a1, lo: 0x36dba887c37a8c10 },
-    uint128 { hi: 0xcf02b2c21207ef2e, lo: 0x94f967e45e03f4bc },
-    uint128 { hi: 0xd106f86e69d785c7, lo: 0xe13336d701beba52 },
-    uint128 { hi: 0xd31045a8341ca07c, lo: 0x1ede48111209a051 },
-    uint128 { hi: 0xd51ea6fa85785631, lo: 0x552a74227f3ea566 },
-    uint128 { hi: 0xd732290fbacaf133, lo: 0xa97c177947ad4096 },
-    uint128 { hi: 0xd94ad8b1c7380874, lo: 0x18375281ae7822bc },
+const POW10_MAJOR: [uint128; 23] = [
+    uint128 { hi: 0xaf8e5410288e1b6f, lo: 0x07ecf0ae5ee44dda }, // -303
+    uint128 { hi: 0xb1442798f49ffb4a, lo: 0x99cd11cfdf41779d }, // -275
+    uint128 { hi: 0xb2fe3f0b8599ef07, lo: 0x861fa7e6dcb4aa15 }, // -247
+    uint128 { hi: 0xb4bca50b065abe63, lo: 0x0fed077a756b53aa }, // -219
+    uint128 { hi: 0xb67f6455292cbf08, lo: 0x1a3bc84c17b1d543 }, // -191
+    uint128 { hi: 0xb84687c269ef3bfb, lo: 0x3d5d514f40eea742 }, // -163
+    uint128 { hi: 0xba121a4650e4ddeb, lo: 0x92f34d62616ce413 }, // -135
+    uint128 { hi: 0xbbe226efb628afea, lo: 0x890489f70a55368c }, // -107
+    uint128 { hi: 0xbdb6b8e905cb600f, lo: 0x5400e987bbc1c921 }, //  -79
+    uint128 { hi: 0xbf8fdb78849a5f96, lo: 0xde98520472bdd034 }, //  -51
+    uint128 { hi: 0xc16d9a0095928a27, lo: 0x75b7053c0f178294 }, //  -23
+    uint128 { hi: 0xc350000000000000, lo: 0x0000000000000000 }, //    5
+    uint128 { hi: 0xc5371912364ce305, lo: 0x6c28000000000000 }, //   33
+    uint128 { hi: 0xc722f0ef9d80aad6, lo: 0x424d3ad2b7b97ef6 }, //   61
+    uint128 { hi: 0xc913936dd571c84c, lo: 0x03bc3a19cd1e38ea }, //   89
+    uint128 { hi: 0xcb090c8001ab551c, lo: 0x5cadf5bfd3072cc6 }, //  117
+    uint128 { hi: 0xcd036837130890a1, lo: 0x36dba887c37a8c10 }, //  145
+    uint128 { hi: 0xcf02b2c21207ef2e, lo: 0x94f967e45e03f4bc }, //  173
+    uint128 { hi: 0xd106f86e69d785c7, lo: 0xe13336d701beba52 }, //  201
+    uint128 { hi: 0xd31045a8341ca07c, lo: 0x1ede48111209a051 }, //  229
+    uint128 { hi: 0xd51ea6fa85785631, lo: 0x552a74227f3ea566 }, //  257
+    uint128 { hi: 0xd732290fbacaf133, lo: 0xa97c177947ad4096 }, //  285
+    uint128 { hi: 0xd94ad8b1c7380874, lo: 0x18375281ae7822bc }, //  313
 ];
 
 #[rustfmt::skip]
-const FIXUPS: [u32; 20] = [
-    0x05271b1f, 0x00000c20, 0x00003200, 0x12100020,
-    0x00000000, 0x06000000, 0xc16409c0, 0xaf26700f,
-    0xeb987b07, 0x0000000d, 0x00000000, 0x66fbfffe,
-    0xb74100ec, 0xa0669fe8, 0xedb21280, 0x00000686,
-    0x0a021200, 0x29b89c20, 0x08bc0eda, 0x00000000,
+const POW10_FIXUPS: [u32; 20] = [
+    0x05271b1f, 0x00000c20, 0x00003200, 0x12100020, 0x00000000,
+    0x06000000, 0xc16409c0, 0xaf26700f, 0xeb987b07, 0x0000000d,
+    0x00000000, 0x66fbfffe, 0xb74100ec, 0xa0669fe8, 0xedb21280,
+    0x00000686, 0x0a021200, 0x29b89c20, 0x08bc0eda, 0x00000000,
 ];
 
 // 128-bit significands of powers of 10 rounded down.
@@ -248,19 +247,20 @@ struct Pow10SignificandsTable {
     data: [u64; if Self::COMPRESS {
         0
     } else {
-        Self::NUM_POW10 * 2
+        Self::NUM_POW10S * 2
     }],
 }
 
 impl Pow10SignificandsTable {
     const COMPRESS: bool = false;
     const SPLIT_TABLES: bool = !Self::COMPRESS && cfg!(target_arch = "aarch64");
-    const NUM_POW10: usize = 617;
+    const NUM_POW10S: usize = 617;
 
     // Computes the 128-bit significand of 10**i using method by Dougall Johnson.
     const fn compute(i: u32) -> uint128 {
-        let m = unsafe { *POW10S.as_ptr().add(((i + 11) % 28) as usize) };
-        let h = unsafe { *HIGH_PARTS.as_ptr().add(((i + 11) / 28) as usize) };
+        const STRIDE: u32 = POW10_MINOR.len() as u32;
+        let m = unsafe { *POW10_MINOR.as_ptr().add(((i + 11) % STRIDE) as usize) };
+        let h = unsafe { *POW10_MAJOR.as_ptr().add(((i + 11) / STRIDE) as usize) };
 
         let h1 = umul128_hi64(h.lo, m);
 
@@ -276,7 +276,8 @@ impl Pow10SignificandsTable {
                 lo: (c1 << 1) | (c0 >> 63),
             }
         };
-        result.lo -= ((unsafe { *FIXUPS.as_ptr().add((i >> 5) as usize) } >> (i & 31)) & 1) as u64;
+        result.lo -=
+            ((unsafe { *POW10_FIXUPS.as_ptr().add((i >> 5) as usize) } >> (i & 31)) & 1) as u64;
         result
     }
 
@@ -284,15 +285,15 @@ impl Pow10SignificandsTable {
         let mut data = [0; if Self::COMPRESS {
             0
         } else {
-            Self::NUM_POW10 * 2
+            Self::NUM_POW10S * 2
         }];
 
         let mut i = 0;
-        while i < Self::NUM_POW10 && !Self::COMPRESS {
+        while i < Self::NUM_POW10S && !Self::COMPRESS {
             let result = Self::compute(i as u32);
             if Self::SPLIT_TABLES {
-                data[Self::NUM_POW10 - i - 1] = result.hi;
-                data[Self::NUM_POW10 * 2 - i - 1] = result.lo;
+                data[Self::NUM_POW10S - i - 1] = result.hi;
+                data[Self::NUM_POW10S * 2 - i - 1] = result.lo;
             } else {
                 data[i * 2] = result.hi;
                 data[i * 2 + 1] = result.lo;
@@ -324,12 +325,12 @@ impl Pow10SignificandsTable {
             let mut hi = self
                 .data
                 .as_ptr()
-                .offset(Self::NUM_POW10 as isize + DEC_EXP_MIN as isize - 1);
+                .offset(Self::NUM_POW10S as isize + DEC_EXP_MIN as isize - 1);
             #[cfg_attr(
                 not(all(any(target_arch = "x86_64", target_arch = "aarch64"), not(miri))),
                 allow(unused_mut)
             )]
-            let mut lo = hi.add(Self::NUM_POW10);
+            let mut lo = hi.add(Self::NUM_POW10S);
 
             // Force indexed loads.
             #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), not(miri)))]
@@ -344,7 +345,7 @@ impl Pow10SignificandsTable {
     #[cfg(test)]
     fn get(&self, dec_exp: i32) -> uint128 {
         const DEC_EXP_MIN: i32 = -292;
-        assert!((DEC_EXP_MIN..DEC_EXP_MIN + Self::NUM_POW10 as i32).contains(&dec_exp));
+        assert!((DEC_EXP_MIN..DEC_EXP_MIN + Self::NUM_POW10S as i32).contains(&dec_exp));
         unsafe { self.get_unchecked(dec_exp) }
     }
 }
@@ -401,7 +402,7 @@ static EXP_SHIFTS: ExpShiftTable = {
             bin_exp += 1;
         }
         let dec_exp = compute_dec_exp(bin_exp, true);
-        data[raw_exp] = do_compute_exp_shift(bin_exp, dec_exp) as u8;
+        data[raw_exp] = do_compute_exp_shift(bin_exp, dec_exp);
         raw_exp += 1;
     }
 
@@ -909,8 +910,10 @@ where
     let num_bits = mem::size_of::<UInt>() as i32 * 8;
     // An optimization from yy by Yaoyuan Guo:
     while regular {
+        const LOG10_2_SIG: u64 = 78_913;
+        const LOG10_2_EXP: i32 = 18;
         let dec_exp = if USE_UMUL128_HI64 {
-            umul128_hi64(bin_exp as u64, 0x4d10500000000000) as i32
+            umul128_hi64(bin_exp as u64, LOG10_2_SIG << (64 - LOG10_2_EXP)) as i32
         } else {
             compute_dec_exp(bin_exp as i32, true)
         };
@@ -984,18 +987,17 @@ where
         // s - shorter underestimate, S - shorter overestimate
         // l - longer underestimate,  L - longer overestimate
 
-        // Check for boundary case when rounding down to nearest 10 and
-        // near-boundary case when rounding up to nearest 10.
+        // Check for near-boundary case when rounding up to nearest 10;
+        // equivalent to upper == ten || upper == ten - 1.
         // Case where upper == ten is insufficient: 1.342178e+08f.
-        if ten.wrapping_sub(upper) <= 1 // upper == ten || upper == ten - 1
-            || scaled_sig_mod10 == scaled_half_ulp
-        {
+        if ten.wrapping_sub(upper) <= 1 {
             break;
         }
 
+        let even = 1 - (bin_sig.into() & 1);
         let shorter = (integral.into() - digit) as i64;
         let longer = (integral.into() + u64::from(cmp >= 0)) as i64;
-        let dec_sig = select_if_less(scaled_sig_mod10, scaled_half_ulp, shorter, longer);
+        let dec_sig = select_if_less(scaled_sig_mod10, scaled_half_ulp + even, shorter, longer);
         return ToDecimalResult {
             sig: select_if_less(ten, upper, shorter + 10, dec_sig),
             exp: dec_exp,
@@ -1107,29 +1109,23 @@ where
     buffer = unsafe { buffer.add(1) };
     dec_exp = if dec_exp >= 0 { dec_exp } else { -dec_exp };
     buffer = unsafe { buffer.add(usize::from(dec_exp >= 10)) };
-    if Float::MIN_10_EXP > -100 && Float::MAX_10_EXP < 100 {
+    if Float::MAX_10_EXP >= 100 {
+        // digit = dec_exp / 100
+        let digit = if USE_UMUL128_HI64 {
+            umul128_hi64(dec_exp as u64, 0x290000000000000) as u32
+        } else {
+            (dec_exp as u32 * DIV100_SIG) >> DIV100_EXP
+        };
         unsafe {
-            buffer
-                .cast::<u16>()
-                .write_unaligned(*digits2(dec_exp as usize));
-            sign_ptr.cast::<u16>().write_unaligned(e_sign.to_le());
-            return buffer.add(2);
+            *buffer = b'0' + digit as u8;
         }
+        buffer = unsafe { buffer.add(usize::from(dec_exp >= 100)) };
+        dec_exp -= (digit * 100) as i32;
     }
-    // digit = dec_exp / 100
-    let digit = if USE_UMUL128_HI64 {
-        umul128_hi64(dec_exp as u64, 0x290000000000000) as u32
-    } else {
-        (dec_exp as u32 * DIV100_SIG) >> DIV100_EXP
-    };
-    unsafe {
-        *buffer = b'0' + digit as u8;
-    }
-    buffer = unsafe { buffer.add(usize::from(dec_exp >= 100)) };
     unsafe {
         buffer
             .cast::<u16>()
-            .write_unaligned(*digits2((dec_exp as u32 - digit * 100) as usize));
+            .write_unaligned(*digits2(dec_exp as usize));
         sign_ptr.cast::<u16>().write_unaligned(e_sign.to_le());
         buffer.add(2)
     }
@@ -1245,7 +1241,6 @@ mod private {
             }
         }
 
-        #[inline]
         #[cfg_attr(feature = "no-panic", inline)]
         unsafe fn write_to_zmij_buffer(self, buffer: *mut u8) -> *mut u8 {
             unsafe { crate::write(self, buffer) }
@@ -1275,7 +1270,6 @@ mod private {
             }
         }
 
-        #[inline]
         #[cfg_attr(feature = "no-panic", inline)]
         unsafe fn write_to_zmij_buffer(self, buffer: *mut u8) -> *mut u8 {
             unsafe { crate::write(self, buffer) }
@@ -1290,6 +1284,38 @@ impl Default for Buffer {
         Buffer::new()
     }
 }
+
+// ---------------------------------------------------------------------------
+// C FFI
+// ---------------------------------------------------------------------------
+
+/// Writes the shortest decimal representation of a `f64` (C `double`) value
+/// into `buffer`. The caller must ensure `buffer` points to at least 24 bytes
+/// of writable memory. The input must be a finite value (not NaN or Infinity).
+///
+/// Returns a pointer to one past the last byte written.
+///
+/// # Safety
+///
+/// `buffer` must be non-null and point to at least 24 writable bytes.
+/// `value` must be finite.
+// #[cfg(feature = "clib")]
+// #[no_mangle]
+// pub unsafe extern "C" fn zmij_write_f64(value: f64, buffer: *mut u8) -> *mut u8 {
+//     unsafe { write(value, buffer) }
+// }
+
+// ---------------------------------------------------------------------------
+// Panic handler & related lang items for staticlib (no_std)
+// ---------------------------------------------------------------------------
+
+// #[cfg(all(feature = "clib", not(test)))]
+// #[panic_handler]
+// fn panic(_: &core::panic::PanicInfo) -> ! {
+//     // This library never panics. Provide an abort as a safety net.
+//     unsafe { core::hint::unreachable_unchecked() }
+// }
+
 
 // ---- Begin playground FFI exports ----
 // These extern "C" wrappers are appended for the benchmark playground.
