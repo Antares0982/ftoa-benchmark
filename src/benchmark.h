@@ -1,5 +1,5 @@
 /*
- * zmij-playground.h — shared types, utilities, and benchmark helpers
+ * benchmark.h — shared types, utilities, and benchmark helpers
  *
  * Included by benchmark.c, any_ftoa_benchmark.c, and verifier.c.
  * All functions are static inline to avoid unused-function warnings
@@ -13,6 +13,7 @@
 #include <dlfcn.h>
 #include <libgen.h>
 #include <math.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,6 +89,43 @@ static inline values_t read_values(const char* path) {
   return v;
 }
 
+/* ---- CPU affinity ------------------------------------------------------- */
+
+/** Pin the current thread to one core to reduce scheduling noise. */
+static inline void pin_to_core(int core_id) {
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+  if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0)
+    fprintf(stderr,
+            "warning: sched_setaffinity failed (try running as root)\n");
+}
+
+/* ---- Benchmark helpers -------------------------------------------------- */
+
+static int cmp_double(const void* a, const void* b) {
+  double da = *(const double*)a, db = *(const double*)b;
+  return (da > db) - (da < db);
+}
+
+static inline void print_stats(const char* name, double* round_ns, int rounds,
+                               size_t count, size_t sink_val) {
+  qsort(round_ns, (size_t)rounds, sizeof(double), cmp_double);
+
+  double min_ns = round_ns[0] / (double)count;
+  double p1_ns = round_ns[rounds / 100] / (double)count; /* P1  */
+  double med_ns = round_ns[rounds / 2] / (double)count;  /* P50 */
+
+  double total_ns = 0;
+  for (int r = 0; r < rounds; r++) total_ns += round_ns[r];
+  double mean_ns = total_ns / ((double)rounds * (double)count);
+
+  printf(
+      "  %-24s  min %7.2f  P1 %7.2f  med %7.2f  mean %7.2f ns/call  "
+      "(sink=%zu)\n",
+      name, min_ns, p1_ns, med_ns, mean_ns, sink_val);
+}
+
 /* ---- Benchmark ---------------------------------------------------------- */
 
 static inline void bench_float(const char* name, write_float_fn fn,
@@ -114,22 +152,8 @@ static inline void bench_float(const char* name, write_float_fn fn,
     round_ns[r] = timespec_diff_ns(&t1, &t0);
   }
 
-  double total_ns = 0;
-  for (int r = 0; r < rounds; r++) total_ns += round_ns[r];
-  double mean = total_ns / ((double)rounds * (double)count);
-
-  double var_sum = 0;
-  for (int r = 0; r < rounds; r++) {
-    double d = round_ns[r] / (double)count - mean;
-    var_sum += d * d;
-  }
-  double stddev = sqrt(var_sum / (double)rounds);
+  print_stats(name, round_ns, rounds, count, (size_t)sink);
   free(round_ns);
-
-  printf(
-      "  %-24s  %10zu calls  %12.2f ms total  %8.2f ± %.2f ns/call  "
-      "(sink=%zu)\n",
-      name, (size_t)rounds * count, total_ns / 1e6, mean, stddev, (size_t)sink);
 }
 
 static inline void bench_double(const char* name, write_double_fn fn,
@@ -156,22 +180,8 @@ static inline void bench_double(const char* name, write_double_fn fn,
     round_ns[r] = timespec_diff_ns(&t1, &t0);
   }
 
-  double total_ns = 0;
-  for (int r = 0; r < rounds; r++) total_ns += round_ns[r];
-  double mean = total_ns / ((double)rounds * (double)count);
-
-  double var_sum = 0;
-  for (int r = 0; r < rounds; r++) {
-    double d = round_ns[r] / (double)count - mean;
-    var_sum += d * d;
-  }
-  double stddev = sqrt(var_sum / (double)rounds);
+  print_stats(name, round_ns, rounds, count, (size_t)sink);
   free(round_ns);
-
-  printf(
-      "  %-24s  %10zu calls  %12.2f ms total  %8.2f ± %.2f ns/call  "
-      "(sink=%zu)\n",
-      name, (size_t)rounds * count, total_ns / 1e6, mean, stddev, (size_t)sink);
 }
 
 /* ---- Lib spec parsing --------------------------------------------------- */

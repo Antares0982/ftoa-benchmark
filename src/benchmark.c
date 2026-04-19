@@ -9,7 +9,7 @@
  *   zmij_benchmark [--lib-dir <path>] [--rounds <N>] <input.txt>
  */
 
-#include "zmij-playground.h"
+#include "benchmark.h"
 
 #ifndef DEFAULT_LIB_DIR
 #  define DEFAULT_LIB_DIR "build/libs"

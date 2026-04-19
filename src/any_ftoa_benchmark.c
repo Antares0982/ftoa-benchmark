@@ -17,7 +17,7 @@
  *           sym_float  = zmijcpp_detail_write_float
  */
 
-#include "zmij-playground.h"
+#include "benchmark.h"
 
 /* ---- Main --------------------------------------------------------------- */
 
@@ -93,6 +93,9 @@ int main(int argc, char** argv) {
     return 1;
   }
   printf("\n");
+
+  /* Pin to a single core to reduce scheduling noise */
+  pin_to_core(1);
 
   /* Check if any lib has float support */
   int has_float = 0;

@@ -13,7 +13,7 @@
  * Default input:    test_input.txt
  */
 
-#include "zmij-playground.h"
+#include "benchmark.h"
 
 /* ---- Main --------------------------------------------------------------- */
 
