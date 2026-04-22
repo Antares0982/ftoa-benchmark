@@ -4,6 +4,20 @@ A benchmark framework for comparing float-to-string implementations. Any library
 
 Each implementation is compiled as a shared library (`.so`), loaded at runtime via `dlopen`, and benchmarked through a unified interface.
 
+## Latest Result
+
+04/23, 2026. [xjb](https://github.com/xjb714/xjb) is significantly faster than zmij (x64, SSE2).
+
+```
+=== float benchmark (5000 rounds × 91932 values, 100 warmup) ===
+  zmij                      min   10.70  P1   10.73  med   10.79  mean   10.81 ns/call  (sink=4160472900)
+  xjb                       min    7.22  P1    7.22  med    7.27  mean    7.27 ns/call  (sink=4160850300)
+
+=== double benchmark (5000 rounds × 91932 values, 100 warmup) ===
+  zmij                      min    9.80  P1    9.83  med    9.90  mean    9.92 ns/call  (sink=7896585000)
+  xjb                       min    8.29  P1    8.32  med    8.38  mean    8.39 ns/call  (sink=7896789000)
+```
+
 ## Prerequisites
 
 - **Nix** (recommended) — provides all build tools in a reproducible environment
@@ -28,9 +42,6 @@ cmake --build build
 ./build/any_ftoa_benchmark \
     ./build/libs/libxjb.so:xjb64:xjb32 \
     ./build/libs/libzmij_cpp.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
-    ./build/libs/libzmij-pr120.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
-    ./build/libs/libzmij-7afa3c.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
-    ./build/libs/libzmij-4baf80.so:zmijcpp_detail_write_double:zmijcpp_detail_write_float \
     ./build/libs/libzmij_c.so:zmij_detail_write_double:zmij_detail_write_float \
     ./build/libs/libzmij_rust.so:zmijrust_detail_write_double:zmijrust_detail_write_float
 ```
