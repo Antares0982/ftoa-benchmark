@@ -90,11 +90,14 @@ static int verify_double(const dtoa_lib_t* libs, int nlibs, const double* vals,
 
 static void usage(const char* prog) {
   fprintf(stderr,
-          "Usage: %s [--lib-dir <path>] [--rounds <N>] <input.txt>\n"
+          "Usage: %s [--lib-dir <path>] [--rounds <N>] [--repeats <M>] "
+          "<input.txt>\n"
           "\n"
           "  --lib-dir <path>  Directory containing .so files (default: "
           "compile-time DEFAULT_LIB_DIR)\n"
-          "  --rounds <N>      Number of benchmark rounds (default: 5000)\n",
+          "  --rounds <N>      Total benchmark rounds per lib (default: 5000)\n"
+          "  --repeats <M>     Shuffled passes; each pass runs N/M rounds "
+          "per lib (default: 5)\n",
           prog);
 }
 
@@ -102,6 +105,7 @@ int main(int argc, char** argv) {
   const char* lib_dir = DEFAULT_LIB_DIR;
   const char* input_path = NULL;
   int rounds = 5000;
+  int repeats = 5;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--lib-dir") == 0 && i + 1 < argc) {
@@ -110,6 +114,12 @@ int main(int argc, char** argv) {
       rounds = atoi(argv[++i]);
       if (rounds <= 0) {
         fprintf(stderr, "Invalid rounds: %s\n", argv[i]);
+        return 1;
+      }
+    } else if (strcmp(argv[i], "--repeats") == 0 && i + 1 < argc) {
+      repeats = atoi(argv[++i]);
+      if (repeats <= 0) {
+        fprintf(stderr, "Invalid repeats: %s\n", argv[i]);
         return 1;
       }
     } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -176,18 +186,67 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
+  srand((unsigned)time(NULL));
+
+  /* Each repeat runs `block` rounds per lib in shuffled order, so every lib
+   * is sampled across the same range of thermal/frequency states. */
+  int block = rounds / repeats;
+  if (block <= 0) block = 1;
+  int total_rounds = block * repeats;
+
+  double* d_buf[MAX_LIBS];
+  double* f_buf[MAX_LIBS];
+  size_t d_sink[MAX_LIBS];
+  size_t f_sink[MAX_LIBS];
+  for (int i = 0; i < nlibs; i++) {
+    d_buf[i] = (double*)malloc((size_t)total_rounds * sizeof(double));
+    f_buf[i] = (double*)malloc((size_t)total_rounds * sizeof(double));
+    d_sink[i] = 0;
+    f_sink[i] = 0;
+  }
+  int order[MAX_LIBS];
+
   /* Benchmark: float */
-  printf("=== float benchmark (%d rounds × %zu values, %d warmup) ===\n",
-         rounds, vals.count, WARMUP_ROUNDS);
+  printf(
+      "=== float benchmark (%d rounds × %zu values, %d repeats, %d "
+      "warmup) ===\n",
+      total_rounds, vals.count, repeats, WARMUP_ROUNDS);
+  for (int rep = 0; rep < repeats; rep++) {
+    printf("  [repeat %d/%d]\n", rep + 1, repeats);
+    fflush(stdout);
+    for (int i = 0; i < nlibs; i++) order[i] = i;
+    shuffle_int(order, nlibs);
+    for (int k = 0; k < nlibs; k++) {
+      int i = order[k];
+      f_sink[i] ^= warmup_float(libs[i].wf, vals.f, vals.count);
+      f_sink[i] = run_float_rounds(libs[i].wf, vals.f, vals.count,
+                                   f_buf[i] + rep * block, block, f_sink[i]);
+    }
+  }
   for (int i = 0; i < nlibs; i++)
-    bench_float(libs[i].name, libs[i].wf, vals.f, vals.count, rounds);
+    print_stats(libs[i].name, f_buf[i], total_rounds, vals.count, f_sink[i]);
   printf("\n");
 
   /* Benchmark: double */
-  printf("=== double benchmark (%d rounds × %zu values, %d warmup) ===\n",
-         rounds, vals.count, WARMUP_ROUNDS);
+  printf(
+      "=== double benchmark (%d rounds × %zu values, %d repeats, %d "
+      "warmup) ===\n",
+      total_rounds, vals.count, repeats, WARMUP_ROUNDS);
+  for (int rep = 0; rep < repeats; rep++) {
+    printf("  [repeat %d/%d]\n", rep + 1, repeats);
+    fflush(stdout);
+    for (int i = 0; i < nlibs; i++) order[i] = i;
+    shuffle_int(order, nlibs);
+    for (int k = 0; k < nlibs; k++) {
+      int i = order[k];
+      d_sink[i] ^= warmup_double(libs[i].wd, vals.d, vals.count);
+      d_sink[i] = run_double_rounds(libs[i].wd, vals.d, vals.count,
+                                    d_buf[i] + rep * block, block, d_sink[i]);
+    }
+  }
   for (int i = 0; i < nlibs; i++)
-    bench_double(libs[i].name, libs[i].wd, vals.d, vals.count, rounds);
+    print_stats(libs[i].name, d_buf[i], total_rounds, vals.count, d_sink[i]);
+  printf("\n");
 
   /* Verify consistency */
   printf("=== Verifying output consistency ===\n");
@@ -198,7 +257,11 @@ int main(int argc, char** argv) {
     printf("  double mismatches: %d\n", dmm);
   printf("\n");
 
-  for (int i = 0; i < nlibs; i++) dlclose(libs[i].handle);
+  for (int i = 0; i < nlibs; i++) {
+    free(d_buf[i]);
+    free(f_buf[i]);
+    dlclose(libs[i].handle);
+  }
   free(vals.f);
   free(vals.d);
   return 0;

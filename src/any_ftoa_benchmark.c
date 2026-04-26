@@ -23,18 +23,22 @@
 
 static void usage(const char* prog) {
   fprintf(stderr,
-          "Usage: %s [--test-input <path>] [--rounds <N>] <lib_spec> "
-          "[<lib_spec> ...]\n"
+          "Usage: %s [--test-input <path>] [--rounds <N>] [--repeats <M>] "
+          "<lib_spec> [<lib_spec> ...]\n"
           "\n"
           "Each <lib_spec> is: path[:sym_double[:sym_float]]\n"
           "  Defaults: sym_double=%s  sym_float=%s\n"
           "  --test-input <path>  Input file (default: %s)\n"
-          "  --rounds <N>         Benchmark rounds (default: 5000)\n",
+          "  --rounds <N>         Total benchmark rounds per lib (default: "
+          "5000)\n"
+          "  --repeats <M>        Shuffled passes; each pass runs N/M rounds "
+          "per lib (default: 5)\n",
           prog, DEFAULT_SYM_DOUBLE, DEFAULT_SYM_FLOAT, DEFAULT_INPUT_PATH);
 }
 
 int main(int argc, char** argv) {
   int rounds = 5000;
+  int repeats = 5;
   const char* input_path = DEFAULT_INPUT_PATH;
   const char* lib_specs[MAX_LIBS];
   int n_specs = 0;
@@ -44,6 +48,12 @@ int main(int argc, char** argv) {
       rounds = atoi(argv[++i]);
       if (rounds <= 0) {
         fprintf(stderr, "Invalid rounds: %s\n", argv[i]);
+        return 1;
+      }
+    } else if (strcmp(argv[i], "--repeats") == 0 && i + 1 < argc) {
+      repeats = atoi(argv[++i]);
+      if (repeats <= 0) {
+        fprintf(stderr, "Invalid repeats: %s\n", argv[i]);
         return 1;
       }
     } else if (strcmp(argv[i], "--test-input") == 0 && i + 1 < argc) {
@@ -96,6 +106,7 @@ int main(int argc, char** argv) {
 
   /* Pin to a single core to reduce scheduling noise */
   pin_to_core(1);
+  srand((unsigned)time(NULL));
 
   /* Check if any lib has float support */
   int has_float = 0;
@@ -106,26 +117,78 @@ int main(int argc, char** argv) {
     }
   }
 
+  /* Each repeat runs `block` rounds per lib in shuffled order, so every lib
+   * is sampled across the same range of thermal/frequency states. */
+  int block = rounds / repeats;
+  if (block <= 0) block = 1;
+  int total_rounds = block * repeats;
+
+  double* d_buf[MAX_LIBS];
+  double* f_buf[MAX_LIBS];
+  size_t d_sink[MAX_LIBS];
+  size_t f_sink[MAX_LIBS];
+  for (int i = 0; i < nlibs; i++) {
+    d_buf[i] = (double*)malloc((size_t)total_rounds * sizeof(double));
+    f_buf[i] = libs[i].wf
+                   ? (double*)malloc((size_t)total_rounds * sizeof(double))
+                   : NULL;
+    d_sink[i] = 0;
+    f_sink[i] = 0;
+  }
+  int order[MAX_LIBS];
+
   /* Benchmark: float */
   if (has_float) {
-    printf("=== float benchmark (%d rounds × %zu values, %d warmup) ===\n",
-           rounds, vals.count, WARMUP_ROUNDS);
+    printf(
+        "=== float benchmark (%d rounds × %zu values, %d repeats, %d "
+        "warmup) ===\n",
+        total_rounds, vals.count, repeats, WARMUP_ROUNDS);
+    for (int rep = 0; rep < repeats; rep++) {
+      printf("  [repeat %d/%d]\n", rep + 1, repeats);
+      fflush(stdout);
+      for (int i = 0; i < nlibs; i++) order[i] = i;
+      shuffle_int(order, nlibs);
+      for (int k = 0; k < nlibs; k++) {
+        int i = order[k];
+        if (!libs[i].wf) continue;
+        f_sink[i] ^= warmup_float(libs[i].wf, vals.f, vals.count);
+        f_sink[i] = run_float_rounds(libs[i].wf, vals.f, vals.count,
+                                     f_buf[i] + rep * block, block, f_sink[i]);
+      }
+    }
     for (int i = 0; i < nlibs; i++) {
       if (libs[i].wf)
-        bench_float(libs[i].name, libs[i].wf, vals.f, vals.count, rounds);
+        print_stats(libs[i].name, f_buf[i], total_rounds, vals.count,
+                    f_sink[i]);
     }
     printf("\n");
   }
 
   /* Benchmark: double */
-  printf("=== double benchmark (%d rounds × %zu values, %d warmup) ===\n",
-         rounds, vals.count, WARMUP_ROUNDS);
+  printf(
+      "=== double benchmark (%d rounds × %zu values, %d repeats, %d warmup) "
+      "===\n",
+      total_rounds, vals.count, repeats, WARMUP_ROUNDS);
+  for (int rep = 0; rep < repeats; rep++) {
+    printf("  [repeat %d/%d]\n", rep + 1, repeats);
+    fflush(stdout);
+    for (int i = 0; i < nlibs; i++) order[i] = i;
+    shuffle_int(order, nlibs);
+    for (int k = 0; k < nlibs; k++) {
+      int i = order[k];
+      d_sink[i] ^= warmup_double(libs[i].wd, vals.d, vals.count);
+      d_sink[i] = run_double_rounds(libs[i].wd, vals.d, vals.count,
+                                    d_buf[i] + rep * block, block, d_sink[i]);
+    }
+  }
   for (int i = 0; i < nlibs; i++)
-    bench_double(libs[i].name, libs[i].wd, vals.d, vals.count, rounds);
+    print_stats(libs[i].name, d_buf[i], total_rounds, vals.count, d_sink[i]);
   printf("\n");
 
   /* Cleanup */
   for (int i = 0; i < nlibs; i++) {
+    free(d_buf[i]);
+    free(f_buf[i]);
     dlclose(libs[i].handle);
     free((void*)libs[i].name);
   }

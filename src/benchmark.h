@@ -19,11 +19,11 @@
 #include <time.h>
 
 #ifdef __linux__
-#include <sched.h>
+#  include <sched.h>
 #elif defined(__APPLE__)
-#include <mach/mach.h>
-#include <mach/thread_policy.h>
-#include <pthread.h>
+#  include <mach/mach.h>
+#  include <mach/thread_policy.h>
+#  include <pthread.h>
 #endif
 
 /* ---- Constants ---------------------------------------------------------- */
@@ -146,49 +146,46 @@ static inline void print_stats(const char* name, double* round_ns, int rounds,
 }
 
 /* ---- Benchmark ---------------------------------------------------------- */
+/*
+ * Each lib's benchmark runs in two phases per (repeat, lib) pair:
+ *   1) warmup_*  — refill icache/dcache after the previous lib evicted them
+ *   2) run_*_rounds — measure `rounds` rounds, append into caller buffer
+ *
+ * The caller drives the outer repeat loop, shuffling lib order each repeat,
+ * so every lib is sampled across the full range of thermal/frequency states
+ * instead of the first lib monopolising the cold-CPU window.
+ */
 
-static inline void bench_float(const char* name, write_float_fn fn,
-                               const float* vals, size_t count, int rounds) {
+static inline size_t warmup_float(write_float_fn fn, const float* vals,
+                                  size_t count) {
   char buf[64];
   volatile size_t sink = 0;
-
   for (int r = 0; r < WARMUP_ROUNDS; r++)
     for (size_t i = 0; i < count; i++) {
       char* end = fn(vals[i], buf);
       sink += (size_t)(end - buf);
     }
-
-  double* round_ns = (double*)malloc((size_t)rounds * sizeof(double));
-  struct timespec t0, t1;
-
-  for (int r = 0; r < rounds; r++) {
-    clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
-    for (size_t i = 0; i < count; i++) {
-      char* end = fn(vals[i], buf);
-      sink += (size_t)(end - buf);
-    }
-    clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-    round_ns[r] = timespec_diff_ns(&t1, &t0);
-  }
-
-  print_stats(name, round_ns, rounds, count, (size_t)sink);
-  free(round_ns);
+  return (size_t)sink;
 }
 
-static inline void bench_double(const char* name, write_double_fn fn,
-                                const double* vals, size_t count, int rounds) {
+static inline size_t warmup_double(write_double_fn fn, const double* vals,
+                                   size_t count) {
   char buf[64];
   volatile size_t sink = 0;
-
   for (int r = 0; r < WARMUP_ROUNDS; r++)
     for (size_t i = 0; i < count; i++) {
       char* end = fn(vals[i], buf);
       sink += (size_t)(end - buf);
     }
+  return (size_t)sink;
+}
 
-  double* round_ns = (double*)malloc((size_t)rounds * sizeof(double));
+static inline size_t run_float_rounds(write_float_fn fn, const float* vals,
+                                      size_t count, double* round_ns_out,
+                                      int rounds, size_t sink_in) {
+  char buf[64];
+  volatile size_t sink = sink_in;
   struct timespec t0, t1;
-
   for (int r = 0; r < rounds; r++) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
     for (size_t i = 0; i < count; i++) {
@@ -196,11 +193,37 @@ static inline void bench_double(const char* name, write_double_fn fn,
       sink += (size_t)(end - buf);
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-    round_ns[r] = timespec_diff_ns(&t1, &t0);
+    round_ns_out[r] = timespec_diff_ns(&t1, &t0);
   }
+  return (size_t)sink;
+}
 
-  print_stats(name, round_ns, rounds, count, (size_t)sink);
-  free(round_ns);
+static inline size_t run_double_rounds(write_double_fn fn, const double* vals,
+                                       size_t count, double* round_ns_out,
+                                       int rounds, size_t sink_in) {
+  char buf[64];
+  volatile size_t sink = sink_in;
+  struct timespec t0, t1;
+  for (int r = 0; r < rounds; r++) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
+    for (size_t i = 0; i < count; i++) {
+      char* end = fn(vals[i], buf);
+      sink += (size_t)(end - buf);
+    }
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+    round_ns_out[r] = timespec_diff_ns(&t1, &t0);
+  }
+  return (size_t)sink;
+}
+
+/* Fisher-Yates shuffle for an int array. Caller seeds rand(). */
+static inline void shuffle_int(int* arr, int n) {
+  for (int i = n - 1; i > 0; i--) {
+    int j = rand() % (i + 1);
+    int t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
 }
 
 /* ---- Lib spec parsing --------------------------------------------------- */
