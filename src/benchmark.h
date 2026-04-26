@@ -13,11 +13,18 @@
 #include <dlfcn.h>
 #include <libgen.h>
 #include <math.h>
-#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef __linux__
+#include <sched.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/thread_policy.h>
+#include <pthread.h>
+#endif
 
 /* ---- Constants ---------------------------------------------------------- */
 
@@ -93,12 +100,24 @@ static inline values_t read_values(const char* path) {
 
 /** Pin the current thread to one core to reduce scheduling noise. */
 static inline void pin_to_core(int core_id) {
+#ifdef __linux__
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
   CPU_SET(core_id, &cpuset);
   if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0)
     fprintf(stderr,
             "warning: sched_setaffinity failed (try running as root)\n");
+#elif defined(__APPLE__)
+  thread_affinity_policy_data_t policy = {core_id + 1};
+  kern_return_t ret = thread_policy_set(
+      pthread_mach_thread_np(pthread_self()), THREAD_AFFINITY_POLICY,
+      (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
+  if (ret != KERN_SUCCESS)
+    fprintf(stderr, "warning: thread_policy_set failed (%d)\n", ret);
+#else
+  (void)core_id;
+  fprintf(stderr, "warning: pin_to_core not supported on this platform\n");
+#endif
 }
 
 /* ---- Benchmark helpers -------------------------------------------------- */
