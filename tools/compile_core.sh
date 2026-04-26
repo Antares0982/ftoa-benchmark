@@ -101,7 +101,7 @@ set -x
 
 # Assembly
 set -x
-"$COMPILER" "${ALL_FLAGS[@]}" -S -g -o "${OUTPUT_DIR}/${NAME}.s" "$SRC"
+"$COMPILER" "${ALL_FLAGS[@]}" -S -o "${OUTPUT_DIR}/${NAME}.s" "$SRC"
 { set +x; } 2>/dev/null
 
 echo "  -> ${OUTPUT_DIR}/lib${NAME}.so"
