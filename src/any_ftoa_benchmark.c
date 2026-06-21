@@ -106,7 +106,6 @@ int main(int argc, char** argv) {
 
   /* Pin to a single core to reduce scheduling noise */
   pin_to_core(1);
-  srand((unsigned)time(NULL));
 
   /* Check if any lib has float support */
   int has_float = 0;
@@ -146,8 +145,7 @@ int main(int argc, char** argv) {
     for (int rep = 0; rep < repeats; rep++) {
       printf("  [repeat %d/%d]\n", rep + 1, repeats);
       fflush(stdout);
-      for (int i = 0; i < nlibs; i++) order[i] = i;
-      shuffle_int(order, nlibs);
+      rotate_order(order, nlibs, rep);
       for (int k = 0; k < nlibs; k++) {
         int i = order[k];
         if (!libs[i].wf) continue;
@@ -172,8 +170,7 @@ int main(int argc, char** argv) {
   for (int rep = 0; rep < repeats; rep++) {
     printf("  [repeat %d/%d]\n", rep + 1, repeats);
     fflush(stdout);
-    for (int i = 0; i < nlibs; i++) order[i] = i;
-    shuffle_int(order, nlibs);
+    rotate_order(order, nlibs, rep);
     for (int k = 0; k < nlibs; k++) {
       int i = order[k];
       d_sink[i] ^= warmup_double(libs[i].wd, vals.d, vals.count);

@@ -216,14 +216,15 @@ static inline size_t run_double_rounds(write_double_fn fn, const double* vals,
   return (size_t)sink;
 }
 
-/* Fisher-Yates shuffle for an int array. Caller seeds rand(). */
-static inline void shuffle_int(int* arr, int n) {
-  for (int i = n - 1; i > 0; i--) {
-    int j = rand() % (i + 1);
-    int t = arr[i];
-    arr[i] = arr[j];
-    arr[j] = t;
-  }
+/* Fill `order` with a cyclic rotation: order[i] = (rep + i) % n.
+ *
+ * Cycling instead of random shuffling guarantees that across M repeats each
+ * lib appears in each slot position the same number of times (exactly when
+ * M is a multiple of n; otherwise off by one). That removes the P1 variance
+ * that plain Fisher-Yates exhibits with few libs and few repeats — a single
+ * unlucky draw could put one lib in slot 0 four out of five times. */
+static inline void rotate_order(int* order, int n, int rep) {
+  for (int i = 0; i < n; i++) order[i] = (rep + i) % n;
 }
 
 /* ---- Lib spec parsing --------------------------------------------------- */

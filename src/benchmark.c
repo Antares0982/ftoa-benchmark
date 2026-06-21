@@ -186,9 +186,7 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-  srand((unsigned)time(NULL));
-
-  /* Each repeat runs `block` rounds per lib in shuffled order, so every lib
+  /* Each repeat runs `block` rounds per lib in rotated order, so every lib
    * is sampled across the same range of thermal/frequency states. */
   int block = rounds / repeats;
   if (block <= 0) block = 1;
@@ -214,8 +212,7 @@ int main(int argc, char** argv) {
   for (int rep = 0; rep < repeats; rep++) {
     printf("  [repeat %d/%d]\n", rep + 1, repeats);
     fflush(stdout);
-    for (int i = 0; i < nlibs; i++) order[i] = i;
-    shuffle_int(order, nlibs);
+    rotate_order(order, nlibs, rep);
     for (int k = 0; k < nlibs; k++) {
       int i = order[k];
       f_sink[i] ^= warmup_float(libs[i].wf, vals.f, vals.count);
@@ -235,8 +232,7 @@ int main(int argc, char** argv) {
   for (int rep = 0; rep < repeats; rep++) {
     printf("  [repeat %d/%d]\n", rep + 1, repeats);
     fflush(stdout);
-    for (int i = 0; i < nlibs; i++) order[i] = i;
-    shuffle_int(order, nlibs);
+    rotate_order(order, nlibs, rep);
     for (int k = 0; k < nlibs; k++) {
       int i = order[k];
       d_sink[i] ^= warmup_double(libs[i].wd, vals.d, vals.count);
