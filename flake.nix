@@ -51,8 +51,8 @@
           python3
           clang
           cmake
-          rustc
-          cargo
+          #rustc
+          #cargo
           cmake-format
           ruff
         ];
