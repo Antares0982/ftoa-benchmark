@@ -8,7 +8,7 @@ Each implementation is compiled as a shared library (`.so`), loaded at runtime v
 
 06/21, 2026. Benchmark shows better performance on [xjb](https://github.com/xjb714/xjb).
 
-x64, SSE2:
+x64, SSE2 (Intel, i13700k):
 
 ```
 === float benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
@@ -19,6 +19,20 @@ x64, SSE2:
   xjb                       min    8.24  P1    8.27  med    8.34  mean    8.34 ns/call  (sink=7868610120)
   zmij_cpp                  min    9.76  P1    9.76  med    9.80  mean    9.80 ns/call  (sink=7867761512)
 ```
+
+x64, SSE4.1 (Intel, i13700k):
+
+```
+=== float benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    7.25  P1    7.26  med    7.30  mean    7.30 ns/call  (sink=4042899836)
+  zmij_cpp                  min    9.65  P1    9.65  med    9.69  mean    9.70 ns/call  (sink=4043068260)
+  
+=== double benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    7.49  P1    7.51  med    7.56  mean    7.56 ns/call  (sink=7868610120)
+  zmij_cpp                  min    8.29  P1    8.31  med    8.36  mean    8.37 ns/call  (sink=7867761512)
+```
+
+
 
 Apple M4:
 
