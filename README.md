@@ -6,17 +6,33 @@ Each implementation is compiled as a shared library (`.so`), loaded at runtime v
 
 ## Latest Result
 
-04/23, 2026. [xjb](https://github.com/xjb714/xjb) is significantly faster than zmij (x64, SSE2).
+06/21, 2026. Benchmark shows better performance on [xjb](https://github.com/xjb714/xjb).
+
+x64, SSE2:
 
 ```
-=== float benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  zmij                      min   10.70  P1   10.73  med   10.79  mean   10.81 ns/call  (sink=4160472900)
-  xjb                       min    7.22  P1    7.22  med    7.27  mean    7.27 ns/call  (sink=4160850300)
+=== float benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    7.22  P1    7.22  med    7.26  mean    7.25 ns/call  (sink=4042899836)
+  zmij_cpp                  min    9.65  P1    9.65  med    9.68  mean    9.68 ns/call  (sink=4043068260)
 
-=== double benchmark (5000 rounds × 91932 values, 100 warmup) ===
-  zmij                      min    9.80  P1    9.83  med    9.90  mean    9.92 ns/call  (sink=7896585000)
-  xjb                       min    8.29  P1    8.32  med    8.38  mean    8.39 ns/call  (sink=7896789000)
+=== double benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    8.24  P1    8.27  med    8.34  mean    8.34 ns/call  (sink=7868610120)
+  zmij_cpp                  min    9.76  P1    9.76  med    9.80  mean    9.80 ns/call  (sink=7867761512)
 ```
+
+Apple M4:
+
+```
+=== float benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    3.26  P1    3.53  med    3.63  mean    3.64 ns/call  (sink=4042899836)
+  zmij_cpp                  min    3.89  P1    4.17  med    4.34  mean    4.34 ns/call  (sink=4043068260)
+
+=== double benchmark (5000 rounds × 91932 values, 5 repeats, 100 warmup) ===
+  xjb                       min    4.16  P1    4.48  med    4.67  mean    4.67 ns/call  (sink=7868610120)
+  zmij_cpp                  min    4.17  P1    4.49  med    4.65  mean    4.67 ns/call  (sink=7867761512)
+```
+
+
 
 ## Prerequisites
 
